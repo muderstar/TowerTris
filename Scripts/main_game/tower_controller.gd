@@ -6,6 +6,8 @@ static var FLOOR_HIGHER : Array = [0,50,150,300,450,650,850,1100,1350,1650,2550,
 
 @export var tetris_controller: TetrisController
 @export var garbage_line_controller: TetrisGarbageLineController
+@export var board_drawer: TetrisBoardDrawer
+@export var clear_line_controller: TetrisClearLine
 
 @onready var tower_rng = RandomManager.get_random("TOWER_CLIMB")
 
@@ -77,6 +79,11 @@ func _auto_finding():
 		if not garbage_line_controller:
 			push_error("TetrisController: 未找到TetrisBoardDrawer节点！")
 			return
+			
+	if not board_drawer:
+		board_drawer = get_node_or_null("../TetrisBoardDrawer")
+		if not board_drawer:
+			board_drawer = get_node_or_null("../../MainBoard/TetrisBoardDrawer")
 	
 
 func _set_game_var():
@@ -101,16 +108,33 @@ func _extra_data_deal():
 	if extra_data_dict.has("garbage_rise_time_delay"):
 		garbage_line_controller.garbage_rise_time_delay = extra_data_dict["garbage_rise_time_delay"]
 	if extra_data_dict.has("garbage_cap"):
-		garbage_line_controller.garbage_rise_time_delay = extra_data_dict["garbage_cap"]
+		garbage_line_controller.garbage_cap = extra_data_dict["garbage_cap"]
 	if extra_data_dict.has("buffer_duration"):
-		garbage_line_controller.garbage_rise_time_delay = extra_data_dict["buffer_duration"]
+		garbage_line_controller.buffer_duration = extra_data_dict["buffer_duration"]
 	if extra_data_dict.has("suddenly_death_mode"):
 		garbage_line_controller.suddenly_death_mode = extra_data_dict["suddenly_death_mode"]
 	if extra_data_dict.has("drop_limit_cancel"):
 		garbage_line_controller.drop_limit_cancel = extra_data_dict["drop_limit_cancel"]
 	
+	if extra_data_dict.has("tetris_invisible"):
+		if board_drawer:
+			board_drawer.tetris_invisible = extra_data_dict["tetris_invisible"]
+			board_drawer.call_deferred("_init_invisible_mode")
+	if extra_data_dict.has("visible_time_between"):
+		if board_drawer:
+			board_drawer.visible_time_between = extra_data_dict["visible_time_between"]
+	if extra_data_dict.has("visible_show_time"):
+		if board_drawer:
+			board_drawer.visible_show_time = extra_data_dict["visible_show_time"]
+	if extra_data_dict.has("drop_visible_time"):
+		if board_drawer:
+			board_drawer.drop_visible_time = extra_data_dict["drop_visible_time"]
+	
 	if extra_data_dict.has("gravity_drop_time"):
 		tetris_controller.gravity_drop_time = extra_data_dict["gravity_drop_time"]
+	
+	if extra_data_dict.has("spin0_btb_enabled"):
+		clear_line_controller.spin0_btb_enabled = extra_data_dict["spin0_btb_enabled"]
 
 func _set_timer():
 	garbage_sent_timer = Timer.new()
@@ -157,7 +181,7 @@ func _tower_climb(delta: float):
 		tower_speed_meter = tower_lowest_speed
 	elif tower_speed_meter > tower_lowest_speed:
 		var x = tower_speed_meter
-		tower_speed_meter -= ((x*log(x) + x)/150.0) * delta * tower_current_dropped_mult
+		tower_speed_meter -= ((x*log(x) + x)/130.0) * delta * tower_current_dropped_mult
 	else:
 		pass
 	

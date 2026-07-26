@@ -49,8 +49,9 @@ var _display_text_map: Dictionary = {
 	"SuddenlyDeath_6": "突然死亡VI：垃圾行会一次性全部上涨，并且上涨上限增加，缓冲时间大幅度缩短",
 	"SuddenlyDeath_7": "突然死亡VII：垃圾行会一次性全部上涨，并且上涨上限大幅度增加，几乎没有缓冲时间",
 	"SuddenlyDeath_8": "突然死亡VIII：垃圾行在缓冲结束后就会一次性全部上涨",
-	"SuddenlyDeath_9": "突然死亡IV：垃圾行在缓冲结束后就会一次性全部上涨，并且上涨上限增加",
-	"SuddenlyDeath_10": "突然死亡X：垃圾行在缓冲结束后就会一次性全部上涨，并且上涨上限大幅度增加，缓冲时间大幅度缩短",
+	"SuddenlyDeath_9": "突然死亡IV：垃圾行在缓冲结束后就会一次性全部上涨，缓冲时间大幅度缩短",
+	"SuddenlyDeath_10": "突然死亡X：垃圾行在缓冲结束后就会一次性全部上涨，缓冲时间极大幅度缩短",
+	"Invisible_1":"隐形I：开启隐形",
 }
 
 
@@ -109,8 +110,9 @@ var _buff_config_map: Dictionary = {
 	"SuddenlyDeath_6": {"suddenly_death_mode": true,"garbage_cap":8,"buffer_duration":1},
 	"SuddenlyDeath_7": {"suddenly_death_mode": true,"garbage_cap":12,"buffer_duration":0.1},
 	"SuddenlyDeath_8": {"suddenly_death_mode": true,"drop_limit_cancel":true},
-	"SuddenlyDeath_9": {"suddenly_death_mode": true,"drop_limit_cancel":true,"garbage_cap":8},
-	"SuddenlyDeath_10": {"suddenly_death_mode": true,"drop_limit_cancel":true,"garbage_cap":12,"buffer_duration":1},
+	"SuddenlyDeath_9": {"suddenly_death_mode": true,"drop_limit_cancel":true,"buffer_duration":1},
+	"SuddenlyDeath_10": {"suddenly_death_mode": true,"drop_limit_cancel":true,"buffer_duration":0.5},
+	"Invisible_1": {"tetris_invisible": 1},
 }
 
 # ToggleBox 节点引用（可在编辑器中拖入或由代码动态添加）
@@ -144,9 +146,10 @@ func _ready():
 	_update_summary_label()
 	
 	# Demo: 打印初始状态
-	print("ToggleBox 数量: ", toggle_boxes.size())
+	#print("ToggleBox 数量: ", toggle_boxes.size())
 	for tb in toggle_boxes:
-		print("  [%s] checked=%s value=%s" % [tb.box_id, tb.is_checked_state(), tb.value])
+		pass
+		#print("  [%s] checked=%s value=%s" % [tb.box_id, tb.is_checked_state(), tb.value])
 
 
 ## 应用 UI 缩放：Panel 居中缩放，子区域内容自适应
@@ -454,17 +457,17 @@ func get_checked_toggle_ids() -> Array[String]:
 # ========== 按钮回调 ==========
 
 func _on_back_button_pressed():
-	print("返回主菜单")
+	#print("返回主菜单")
 	get_tree().change_scene_to_file(main_menu_scene_path)
 
 
 func _on_start_button_pressed():
-	print("开始游戏 - 进入俄罗斯方块")
+	#print("开始游戏 - 进入俄罗斯方块")
 	
 	# 将应用了所有 buff/debuff 倍率的数据存入 GlobalData
 	var buffed_data: Dictionary = get_buffed_tower_data()
 	GlobalData.tower_init_data = buffed_data
-	print("TowerController 数据（含 buff/debuff 倍率累加）已存入 GlobalData: ", GlobalData.tower_init_data)
+	#print("TowerController 数据（含 buff/debuff 倍率累加）已存入 GlobalData: ", GlobalData.tower_init_data)
 	
 	GlobalData.reset_stats()
 	get_tree().change_scene_to_file(game_scene_path)

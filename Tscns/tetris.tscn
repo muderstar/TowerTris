@@ -47,8 +47,10 @@ offset_left = 8.0
 offset_top = 8.0
 script = ExtResource("7_et6fd")
 
-[node name="TowerController" type="Node2D" parent="." unique_id=154904659 node_paths=PackedStringArray("tetris_controller", "garbage_line_controller")]
+[node name="TowerController" type="Node2D" parent="." unique_id=154904659 node_paths=PackedStringArray("tetris_controller", "garbage_line_controller", "board_drawer", "clear_line_controller")]
 unique_name_in_owner = true
 script = ExtResource("6_7iclg")
 tetris_controller = NodePath("../MainBoard/TetrisController")
 garbage_line_controller = NodePath("../MainBoard/GarbageLineController")
+board_drawer = NodePath("../MainBoard/TetrisBoardDrawer")
+clear_line_controller = NodePath("../MainBoard/TetrisClearLine")

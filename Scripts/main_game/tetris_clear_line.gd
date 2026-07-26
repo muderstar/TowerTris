@@ -118,6 +118,7 @@ var damage_text_position: Vector2 = Vector2.ZERO
 var combo_count: int = 0
 var btb_count: int = 0
 var is_btb_active: bool = false
+var spin0_btb_enabled: bool = false  # Spin0是否触发BTB（由buff控制）
 
 # PC状态
 var current_pc_text: String = ""
@@ -250,21 +251,29 @@ func check_and_clear_lines() -> int:
 		return 0
 	
 	lines_to_clear = _find_complete_lines()
+	var spin_type = _detect_spin_type()
+	var clear_count = lines_to_clear.size()
 	
-	if lines_to_clear.is_empty():
-		combo_count = 0
-		reset_rotation_record()
-		current_damage = 0
-		has_cleared_lines = false
-		clear_texts_except_btb()
+	if clear_count == 0:
+		if not spin_type.is_empty():
+			# Spin0：显示spin文本，不显示消行文本
+			_show_spin_text_only(spin_type)
+			
+			if spin0_btb_enabled:
+				# 特殊情况：spin0触发BTB
+				_update_btb(true)
+			# 正常情况下spin0不触发BTB也不断开BTB
+			
+			reset_rotation_record()
+		else:
+			combo_count = 0
+			reset_rotation_record()
+			current_damage = 0
+			has_cleared_lines = false
+			clear_texts_except_btb()
 		return 0
 	
 	has_cleared_lines = true
-	var clear_count = lines_to_clear.size()
-	var spin_type = _detect_spin_type()
-	
-	_clear_lines(lines_to_clear)
-	
 	var is_spin = not spin_type.is_empty()
 	# 单独判断is_quad
 	var is_quad = false
@@ -276,6 +285,8 @@ func check_and_clear_lines() -> int:
 		is_spin_or_quad = true
 	if is_spin:
 		is_spin_or_quad = true
+	
+	_clear_lines(lines_to_clear)
 	
 	var damage = _calculate_damage(clear_count, spin_type)
 	
@@ -489,12 +500,18 @@ func _detect_spin_type() -> String:
 		return ""
 	
 	if not _is_piece_stuck(last_rotation_piece_shape, last_rotation_position):
-		# T块专属：正常 T-Spin 判定不成立时，额外检测 T-Spin Mini
+		# 未卡住 → T块额外检测 Mini T-Spin
 		if last_rotation_piece_type == "T":
 			return _detect_t_spin_mini()
 		return ""
 	
-	return last_rotation_piece_type + "-Spin"
+	# 卡住了
+	if last_rotation_piece_type == "T":
+		# T块卡住 → 全 T-Spin
+		return "T-Spin"
+	
+	# 非T块卡住 → 视作 Mini Spin
+	return "Mini " + last_rotation_piece_type + "-Spin"
 
 func _is_piece_stuck(shape: Array, piece_position: Vector2i) -> bool:
 	if not tetris_controller:
@@ -515,13 +532,10 @@ func _is_piece_stuck(shape: Array, piece_position: Vector2i) -> bool:
 	return true
 
 
-## 检测T块专属的 Mini T-Spin
+## 检测T块专用 Mini T-Spin
 ## 条件：左下和右下都被方块或墙占据，且左上或右上有一个被方块或墙占据
 ## 返回 "Mini T-Spin" 或 ""
 func _detect_t_spin_mini() -> String:
-	if last_rotation_piece_type != "T":
-		return ""
-	
 	var pos_x: int = last_rotation_position.x
 	var pos_y: int = last_rotation_position.y
 	
@@ -621,6 +635,34 @@ func _on_clear_text_timeout():
 		current_btb_text = ""
 	
 	clear_spin_color()
+	board_drawer.queue_redraw()
+
+## 仅显示Spin文本（无消行，Spin0）
+func _show_spin_text_only(spin_type: String):
+	if spin_type.is_empty():
+		return
+	
+	if spin_color_ready:
+		display_spin_color = pending_spin_color
+	else:
+		display_spin_color = Color.YELLOW
+	
+	# 计算spin文本位置
+	var hold_pos = board_drawer._get_hold_position()
+	var hold_height = board_drawer.hold_display_height * board_drawer.cell_size
+	var garbage_slot_left_x = hold_pos.x + board_drawer.hold_display_width * board_drawer.cell_size
+	var bottom_y = hold_pos.y + hold_height
+	
+	var spin_offset_y = spin_text_offset_y_cells * board_drawer.cell_size
+	spin_text_position = Vector2(garbage_slot_left_x, bottom_y + spin_offset_y)
+	current_spin_text = spin_type
+	
+	# 清除其他文本（保留BTB）
+	current_clear_text = ""
+	current_combo_text = ""
+	current_pc_text = ""
+	clear_text_timer.stop()
+	clear_text_timer.start()
 	board_drawer.queue_redraw()
 
 ## 获取当前显示的Spin文本颜色

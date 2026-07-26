@@ -128,6 +128,18 @@ var is_game_over: bool = false
 # 窗口尺寸追踪
 var last_viewport_size: Vector2 = Vector2.ZERO
 
+var tetris_invisible: int = 0                       # 0=关闭, 1=开启（放置的方块隐藏，垃圾行正常显示）
+var visible_time_between: float = 10                 # 隐藏间隔时间（秒），每隔多久显示一次方块
+var visible_show_time: float = 1                    # 显示持续时间（秒），方块显示多久后再次隐藏
+var drop_visible_time: float = 1                    # 方块落下后渐变透明的耗时（秒），0=立即隐形
+
+# 隐藏模式状态
+var _is_visible_mode: bool = true                   # true=正在显示方块, false=方块隐藏
+var _invisible_timer: Timer = null                  # 隐藏模式计时器
+
+# 每个格子锁定的时间戳（用于drop_visible_time渐隐），0表示未锁定
+var _cell_lock_times: Array = []                    # 与board_data同维度，存储Time.get_ticks_msec()
+
 func _ready():
 	_get_find_controller()
 	_init_board_data()
@@ -140,6 +152,9 @@ func _ready():
 	if tower_controller:
 		tower_controller.big_attack_warning_started.connect(_on_big_attack_warning_started)
 		tower_controller.big_attack_warning_ended.connect(_on_big_attack_warning_ended)
+	
+	# 初始化隐藏模式
+	_init_invisible_mode()
 
 func _process(_delta):
 	# 检查窗口是否被拉伸
@@ -152,6 +167,52 @@ func _process(_delta):
 		if timer and timer.wait_time > 0:
 			big_attack_warning_progress = 1.0 - (timer.time_left / timer.wait_time)
 			queue_redraw()
+
+## 初始化隐藏模式（tetris_invisible）
+func _init_invisible_mode():
+	if tetris_invisible == 0:
+		_is_visible_mode = true
+		# 如果已有计时器则停止并移除
+		if _invisible_timer:
+			_invisible_timer.stop()
+			_invisible_timer.queue_free()
+			_invisible_timer = null
+		return
+	
+	# tetris_invisible == 1：初始为隐藏状态
+	_is_visible_mode = false
+	
+	# 如果计时器已存在，直接重置
+	if _invisible_timer:
+		_invisible_timer.stop()
+		_invisible_timer.wait_time = visible_time_between
+		_invisible_timer.start()
+		return
+	
+	# 创建并启动计时器
+	_invisible_timer = Timer.new()
+	_invisible_timer.one_shot = true
+	_invisible_timer.timeout.connect(_on_invisible_timer_timeout)
+	add_child(_invisible_timer)
+	_invisible_timer.wait_time = visible_time_between
+	_invisible_timer.start()
+
+## 隐藏模式计时器回调：切换显示/隐藏状态
+func _on_invisible_timer_timeout():
+	if tetris_invisible == 0:
+		return
+	
+	if _is_visible_mode:
+		# 当前在显示阶段 → 切换到隐藏，等待 visible_time_between 秒后再次显示
+		_is_visible_mode = false
+		_invisible_timer.wait_time = visible_time_between
+	else:
+		# 当前在隐藏阶段 → 切换到显示，持续 visible_show_time 秒后隐藏
+		_is_visible_mode = true
+		_invisible_timer.wait_time = visible_show_time
+	
+	_invisible_timer.start()
+	queue_redraw()
 
 func _get_find_controller():
 	# 自动查找tetris_controller（如果未设置）
@@ -168,11 +229,15 @@ func _init_board_data():
 		garbage_cap = garbage_line_controller.garbage_cap
 	
 	board_data.clear()
+	_cell_lock_times.clear()
 	for y in range(grid_max_height):
 		var row: Array = []
+		var time_row: Array = []
 		for x in range(grid_width):
 			row.append(null)  # null 表示空格子
+			time_row.append(0)  # 0 表示未锁定
 		board_data.append(row)
+		_cell_lock_times.append(time_row)
 
 ## 更新版面位置和大小（自动居中）
 func _update_board_position():
@@ -246,6 +311,11 @@ func set_cell_color(x: int, y: int, color):
 	
 	if _is_valid_position(x, y):
 		board_data[y][x] = color
+		# 记录锁定时间（非空格、非垃圾行）
+		if color != null and not _is_garbage_color(color):
+			_cell_lock_times[y][x] = Time.get_ticks_msec()
+		elif color == null:
+			_cell_lock_times[y][x] = 0
 		queue_redraw()  # 请求重绘
 
 ## 获取某个格子的颜色
@@ -384,29 +454,85 @@ func _draw_grid_lines():
 	var width = grid_width * cell_size
 	var height = grid_height * cell_size  # 只绘制可见高度
 	
-	# 绘制垂直线
-	for x in range(grid_width + 1):
+	# 绘制垂直线（跳过x=0和x=grid_width，由白色版边边框覆盖）
+	for x in range(1, grid_width):
 		var start_pos = Vector2(offset_x + x * cell_size, offset_y)
 		var end_pos = Vector2(offset_x + x * cell_size, offset_y + height)
 		draw_line(start_pos, end_pos, grid_line_color, grid_line_width)
 	
-	# 绘制水平线（只绘制可见高度）
-	for y in range(grid_height + 1):
+	# 绘制水平线（只绘制可见高度，跳过y=0和y=grid_height）
+	for y in range(1, grid_height):
 		var start_pos = Vector2(offset_x, offset_y + y * cell_size)
 		var end_pos = Vector2(offset_x + width, offset_y + y * cell_size)
 		draw_line(start_pos, end_pos, grid_line_color, grid_line_width)
 
 ## 绘制所有格子（含可见区域上方的出块区域）
 func _draw_cells():
-	for y in range(grid_height + above_visible_rows):  # 覆盖出块区域到可见区域底部
-		for x in range(grid_width):
-			var cell_color = board_data[y][x]
-			if cell_color != null:
-				var cell_rect = Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
-				draw_rect(cell_rect, cell_color, true)  # 填充颜色
-				
-				# 可选：添加描边效果
+	# 优先判断：不处于隐形模式 → 全部正常绘制
+	if tetris_invisible != 1:
+		for y in range(grid_height + above_visible_rows):
+			for x in range(grid_width):
+				var cell_color: Variant = board_data[y][x]
+				if cell_color == null:
+					continue
+				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
+				draw_rect(cell_rect, cell_color as Color, true)
 				draw_rect(cell_rect, grid_line_color, false, 1.0)
+		return
+	
+	# 隐形模式（tetris_invisible == 1）
+	var now := Time.get_ticks_msec()
+	
+	for y in range(grid_height + above_visible_rows):
+		for x in range(grid_width):
+			var cell_color: Variant = board_data[y][x]
+			if cell_color == null:
+				continue
+			
+			# 处于显示阶段 → 所有方块正常绘制
+			if _is_visible_mode:
+				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
+				draw_rect(cell_rect, cell_color as Color, true)
+				draw_rect(cell_rect, grid_line_color, false, 1.0)
+				continue
+			
+			# 隐藏阶段：手上控制的方块始终显示
+			if _is_occupied_by_current_piece(x, y):
+				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
+				draw_rect(cell_rect, cell_color as Color, true)
+				draw_rect(cell_rect, grid_line_color, false, 1.0)
+				continue
+			
+			# 隐藏阶段：垃圾行始终显示
+			if _is_garbage_color(cell_color as Color):
+				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
+				draw_rect(cell_rect, cell_color as Color, true)
+				draw_rect(cell_rect, grid_line_color, false, 1.0)
+				continue
+			
+			# 普通已锁定方块 → 渐隐逻辑（落块后的短暂现形）
+			if drop_visible_time > 0.0:
+				var elapsed: float = (now - int(_cell_lock_times[y][x])) / 1000.0
+				var alpha: float = 1.0 - (elapsed / drop_visible_time)
+				alpha = clamp(alpha, 0.0, 1.0)
+				if alpha <= 0.0:
+					continue  # 完全消失
+				var draw_color: Color = cell_color as Color
+				draw_color.a = alpha
+				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
+				draw_rect(cell_rect, draw_color, true)
+				draw_rect(cell_rect, grid_line_color, false, 1.0)
+			else:
+				# drop_visible_time == 0：落下即隐形
+				continue
+
+## 判断颜色是否为垃圾行颜色（垃圾行需要始终绘制）
+func _is_garbage_color(color: Color) -> bool:
+	if not garbage_line_controller:
+		return false
+	return (color == garbage_line_controller.garbage_color or 
+			color == garbage_line_controller.buffered_garbage_color or 
+			color == garbage_line_controller.solid_garbage_color)
 
 ## 绘制背景（只绘制可见区域）
 func _draw_background():
@@ -840,7 +966,7 @@ func _draw_big_attack_warning():
 	var arrow_count = 4
 	var arrow_width = cell_size * 0.5          # 箭头底部宽度
 	var arrow_height = cell_size * 0.6         # 箭头高度
-	var arrow_spacing = board_width_px / (arrow_count + 1)  # 等间距
+	var arrow_spacing = 1.0 * board_width_px / (arrow_count + 1)  # 等间距
 	var arrow_alpha: float = 0.4 + 0.6 * big_attack_warning_progress
 	var arrow_color: Color = Color(1.0, 0.0, 0.0, arrow_alpha * 0.7)
 	
@@ -945,38 +1071,38 @@ func _draw():
 	# 1. 绘制背景
 	_draw_background()
 	
-	# 2. 绘制版面左右边缘白线
-	_draw_board_border()
-	
-	# 3. 绘制所有格子
+	# 2. 绘制所有格子
 	_draw_cells()
 	
-	# 4. 绘制影子方块
+	# 3. 绘制影子方块
 	_draw_shadow()
 	
-	# 5. 绘制垃圾槽
+	# 4. 绘制垃圾槽
 	_draw_garbage_slot()
 	
-	# 6. 绘制Hold方块区域
+	# 5. 绘制Hold方块区域
 	_draw_hold_display()
 	
-	# 7. 绘制Next方块区域
+	# 6. 绘制Next方块区域
 	_draw_next_display()
 	
-	# 8. 绘制大攻击警告条（在最高方块上侧边缘）
+	# 7. 绘制大攻击警告条（在最高方块上侧边缘）
 	_draw_big_attack_warning()
 	
-	# 9. 绘制统计信息
+	# 8. 绘制统计信息
 	_draw_stats()
 	
-	# 10. 绘制高度显示
+	# 9. 绘制高度显示
 	_draw_height_display()
 	
-	# 11. 绘制消行文本
+	# 10. 绘制消行文本
 	_draw_clear_text()
 	
-	# 12. 绘制网格线（在最上层）
+	# 11. 绘制网格线
 	_draw_grid_lines()
+	
+	# 12. 绘制版面左右边缘白线（最上层，确保不被网格线或格子描边覆盖）
+	_draw_board_border()
 	
 	# 13. 游戏结束暗幕（最上层）
 	_draw_death_overlay()
