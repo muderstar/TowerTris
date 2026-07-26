@@ -1,0 +1,173 @@
+[gd_scene format=3 uid="uid://cg7ljuepecyjq"]
+
+[ext_resource type="Script" uid="uid://2e6n202exrs6" path="res://Scripts/gameover_main/inform_show.gd" id="1_mksk8"]
+
+[node name="GameOver" type="Node2D" unique_id=1580557469]
+
+[node name="Panel" type="Panel" parent="." unique_id=54265438]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="game_over_label" type="Label" parent="Panel" unique_id=1275378744]
+layout_mode = 0
+offset_left = 439.0
+offset_top = 60.0
+offset_right = 719.0
+offset_bottom = 120.0
+theme_override_font_sizes/font_size = 48
+text = "GAME OVER"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="height_label" type="Label" parent="Panel" unique_id=710244035]
+layout_mode = 0
+offset_left = 379.0
+offset_top = 155.0
+offset_right = 779.0
+offset_bottom = 200.0
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Control" type="Control" parent="Panel" unique_id=638068828]
+anchors_preset = 0
+offset_left = 350.0
+offset_top = 230.0
+offset_right = 810.0
+offset_bottom = 510.0
+
+[node name="time_label" type="Label" parent="Panel/Control" unique_id=1760028583]
+layout_mode = 0
+offset_right = 200.0
+offset_bottom = 30.0
+theme_override_font_sizes/font_size = 18
+
+[node name="piece_label" type="Label" parent="Panel/Control" unique_id=1625153524]
+layout_mode = 0
+offset_top = 40.0
+offset_right = 200.0
+offset_bottom = 70.0
+theme_override_font_sizes/font_size = 18
+
+[node name="pps_label" type="Label" parent="Panel/Control" unique_id=71312159]
+layout_mode = 0
+offset_top = 80.0
+offset_right = 200.0
+offset_bottom = 110.0
+theme_override_font_sizes/font_size = 18
+
+[node name="apm_label" type="Label" parent="Panel/Control" unique_id=1063118216]
+layout_mode = 0
+offset_top = 120.0
+offset_right = 200.0
+offset_bottom = 150.0
+theme_override_font_sizes/font_size = 18
+
+[node name="rpm_label" type="Label" parent="Panel/Control" unique_id=1621770141]
+layout_mode = 0
+offset_top = 160.0
+offset_right = 200.0
+offset_bottom = 190.0
+theme_override_font_sizes/font_size = 18
+
+[node name="max_combo_label" type="Label" parent="Panel/Control" unique_id=825095462]
+layout_mode = 0
+offset_left = 260.0
+offset_right = 460.0
+offset_bottom = 30.0
+theme_override_font_sizes/font_size = 18
+
+[node name="max_btb_label" type="Label" parent="Panel/Control" unique_id=1597907273]
+layout_mode = 0
+offset_left = 260.0
+offset_top = 40.0
+offset_right = 460.0
+offset_bottom = 70.0
+theme_override_font_sizes/font_size = 18
+
+[node name="line_cleared_label" type="Label" parent="Panel/Control" unique_id=1716694010]
+layout_mode = 0
+offset_left = 260.0
+offset_top = 80.0
+offset_right = 460.0
+offset_bottom = 110.0
+theme_override_font_sizes/font_size = 18
+
+[node name="spins_label" type="Label" parent="Panel/Control" unique_id=1249006376]
+layout_mode = 0
+offset_left = 260.0
+offset_top = 120.0
+offset_right = 460.0
+offset_bottom = 150.0
+theme_override_font_sizes/font_size = 18
+
+[node name="attacks_label" type="Label" parent="Panel/Control" unique_id=2072658400]
+layout_mode = 0
+offset_left = 260.0
+offset_top = 160.0
+offset_right = 460.0
+offset_bottom = 190.0
+theme_override_font_sizes/font_size = 18
+
+[node name="kill_count_label" type="Label" parent="Panel/Control" unique_id=156128023]
+layout_mode = 0
+offset_top = 200.0
+offset_right = 200.0
+offset_bottom = 230.0
+theme_override_font_sizes/font_size = 18
+
+[node name="tower_avg_speed_label" type="Label" parent="Panel/Control" unique_id=1655790708]
+layout_mode = 0
+offset_top = 240.0
+offset_right = 200.0
+offset_bottom = 270.0
+theme_override_font_sizes/font_size = 18
+
+[node name="stage_label" type="Label" parent="Panel/Control" unique_id=180145150]
+layout_mode = 0
+offset_top = 280.0
+offset_right = 200.0
+offset_bottom = 310.0
+theme_override_font_sizes/font_size = 18
+
+[node name="inform_show" type="Node2D" parent="." unique_id=724293675 node_paths=PackedStringArray("game_over_label", "height_label", "stats_container", "time_label", "pieces_label", "pps_label", "apm_label", "rpm_label", "max_combo_label", "max_btb_label", "lines_cleared_label", "spins_label", "attacks_label", "kill_count_label", "tower_avg_speed_label", "stage_label")]
+script = ExtResource("1_mksk8")
+game_over_label = NodePath("../Panel/game_over_label")
+height_label = NodePath("../Panel/height_label")
+stats_container = NodePath("../Panel/Control")
+time_label = NodePath("../Panel/Control/time_label")
+pieces_label = NodePath("../Panel/Control/piece_label")
+pps_label = NodePath("../Panel/Control/pps_label")
+apm_label = NodePath("../Panel/Control/apm_label")
+rpm_label = NodePath("../Panel/Control/rpm_label")
+max_combo_label = NodePath("../Panel/Control/max_combo_label")
+max_btb_label = NodePath("../Panel/Control/max_btb_label")
+lines_cleared_label = NodePath("../Panel/Control/line_cleared_label")
+spins_label = NodePath("../Panel/Control/spins_label")
+attacks_label = NodePath("../Panel/Control/attacks_label")
+kill_count_label = NodePath("../Panel/Control/kill_count_label")
+tower_avg_speed_label = NodePath("../Panel/Control/tower_avg_speed_label")
+stage_label = NodePath("../Panel/Control/stage_label")
+
+[node name="restart_button" type="Button" parent="." unique_id=1549211814]
+offset_left = 459.0
+offset_top = 530.0
+offset_right = 569.0
+offset_bottom = 580.0
+theme_override_font_sizes/font_size = 20
+text = "AGAIN"
+
+[node name="menu_button" type="Button" parent="." unique_id=956783729]
+offset_left = 589.0
+offset_top = 530.0
+offset_right = 699.0
+offset_bottom = 580.0
+theme_override_font_sizes/font_size = 20
+text = "MENU"
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=739537167]
+position = Vector2(579, 325)
+
+[connection signal="pressed" from="restart_button" to="inform_show" method="_on_restart_button_pressed"]
+[connection signal="pressed" from="menu_button" to="inform_show" method="_on_menu_button_pressed"]

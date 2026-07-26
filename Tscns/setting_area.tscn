@@ -1,0 +1,215 @@
+[gd_scene format=3 uid="uid://bq2ikk1etk2mg"]
+
+[ext_resource type="Script" uid="uid://c2cdrcf67cu8v" path="res://Scripts/setting_area/setting_area.gd" id="1_d0nmj"]
+
+[node name="setting_area" type="Node2D" unique_id=687338970]
+
+[node name="SettingArea" type="Control" parent="." unique_id=961848419 node_paths=PackedStringArray("key_left_button", "key_right_button", "key_soft_drop_button", "key_hard_drop_button", "key_left_spin_button", "key_right_spin_button", "key_swap_spin_button", "key_hold_button", "das_slider", "das_value_label", "arr_slider", "arr_value_label", "softdrop_slider", "softdrop_value_label", "save_button", "reset_button", "back_button", "hint_label")]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+script = ExtResource("1_d0nmj")
+key_left_button = NodePath("Panel/KeyBindings/KeyRow_Left/key_left_button")
+key_right_button = NodePath("Panel/KeyBindings/KeyRow_Right/key_right_button")
+key_soft_drop_button = NodePath("Panel/KeyBindings/KeyRow_SoftDrop/key_soft_drop_button")
+key_hard_drop_button = NodePath("Panel/KeyBindings/KeyRow_HardDrop/key_hard_drop_button")
+key_left_spin_button = NodePath("Panel/KeyBindings/KeyRow_LeftSpin/key_left_spin_button")
+key_right_spin_button = NodePath("Panel/KeyBindings/KeyRow_RightSpin/key_right_spin_button")
+key_swap_spin_button = NodePath("Panel/KeyBindings/KeyRow_SwapSpin/key_swap_spin_button")
+key_hold_button = NodePath("Panel/KeyBindings/KeyRow_Hold/key_hold_button")
+das_slider = NodePath("Panel/SpeedSetting/DASRow/das_slider")
+das_value_label = NodePath("Panel/SpeedSetting/DASRow/das_value_label")
+arr_slider = NodePath("Panel/SpeedSetting/ARRRow/arr_slider")
+arr_value_label = NodePath("Panel/SpeedSetting/ARRRow/arr_value_label")
+softdrop_slider = NodePath("Panel/SpeedSetting/SoftDropRow/softdrop_slider")
+softdrop_value_label = NodePath("Panel/SpeedSetting/SoftDropRow/softdrop_value_label")
+save_button = NodePath("Panel/Buttons/save_button")
+reset_button = NodePath("Panel/Buttons/reset_button")
+back_button = NodePath("Panel/Buttons/back_button")
+hint_label = NodePath("Panel/hint_label")
+
+[node name="Panel" type="Panel" parent="SettingArea" unique_id=1898860307]
+layout_mode = 0
+offset_right = 55.0
+offset_bottom = 45.0
+
+[node name="Label" type="Label" parent="SettingArea/Panel" unique_id=1404789654]
+layout_mode = 0
+offset_left = 501.0
+offset_top = 25.0
+offset_right = 566.0
+offset_bottom = 48.0
+text = "SETTING"
+
+[node name="KeyBindings" type="VBoxContainer" parent="SettingArea/Panel" unique_id=1363088133]
+layout_mode = 0
+offset_left = 127.0
+offset_top = 68.0
+offset_right = 250.0
+offset_bottom = 280.0
+
+[node name="KeyRow_Left" type="HBoxContainer" parent="SettingArea/Panel/KeyBindings" unique_id=1957095866]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SettingArea/Panel/KeyBindings/KeyRow_Left" unique_id=662472564]
+layout_mode = 2
+text = "左移"
+
+[node name="key_left_button" type="Button" parent="SettingArea/Panel/KeyBindings/KeyRow_Left" unique_id=1087027968]
+layout_mode = 2
+
+[node name="KeyRow_Right" type="HBoxContainer" parent="SettingArea/Panel/KeyBindings" unique_id=840623032]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SettingArea/Panel/KeyBindings/KeyRow_Right" unique_id=1404209]
+layout_mode = 2
+text = "右移"
+
+[node name="key_right_button" type="Button" parent="SettingArea/Panel/KeyBindings/KeyRow_Right" unique_id=1379703318]
+layout_mode = 2
+
+[node name="KeyRow_SoftDrop" type="HBoxContainer" parent="SettingArea/Panel/KeyBindings" unique_id=1470212578]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SettingArea/Panel/KeyBindings/KeyRow_SoftDrop" unique_id=857474555]
+layout_mode = 2
+text = "软降"
+
+[node name="key_soft_drop_button" type="Button" parent="SettingArea/Panel/KeyBindings/KeyRow_SoftDrop" unique_id=1078777546]
+layout_mode = 2
+
+[node name="KeyRow_HardDrop" type="HBoxContainer" parent="SettingArea/Panel/KeyBindings" unique_id=2025902146]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SettingArea/Panel/KeyBindings/KeyRow_HardDrop" unique_id=821900337]
+layout_mode = 2
+text = "硬降"
+
+[node name="key_hard_drop_button" type="Button" parent="SettingArea/Panel/KeyBindings/KeyRow_HardDrop" unique_id=802916519]
+layout_mode = 2
+
+[node name="KeyRow_LeftSpin" type="HBoxContainer" parent="SettingArea/Panel/KeyBindings" unique_id=1843066460]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SettingArea/Panel/KeyBindings/KeyRow_LeftSpin" unique_id=2057430134]
+layout_mode = 2
+text = "左旋"
+
+[node name="key_left_spin_button" type="Button" parent="SettingArea/Panel/KeyBindings/KeyRow_LeftSpin" unique_id=1731341075]
+layout_mode = 2
+
+[node name="KeyRow_RightSpin" type="HBoxContainer" parent="SettingArea/Panel/KeyBindings" unique_id=1492787695]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SettingArea/Panel/KeyBindings/KeyRow_RightSpin" unique_id=1823813492]
+layout_mode = 2
+text = "右旋"
+
+[node name="key_right_spin_button" type="Button" parent="SettingArea/Panel/KeyBindings/KeyRow_RightSpin" unique_id=1471996802]
+layout_mode = 2
+
+[node name="KeyRow_SwapSpin" type="HBoxContainer" parent="SettingArea/Panel/KeyBindings" unique_id=141125531]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SettingArea/Panel/KeyBindings/KeyRow_SwapSpin" unique_id=1694601861]
+layout_mode = 2
+text = "180旋"
+
+[node name="key_swap_spin_button" type="Button" parent="SettingArea/Panel/KeyBindings/KeyRow_SwapSpin" unique_id=1324732454]
+layout_mode = 2
+
+[node name="KeyRow_Hold" type="HBoxContainer" parent="SettingArea/Panel/KeyBindings" unique_id=1216435049]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SettingArea/Panel/KeyBindings/KeyRow_Hold" unique_id=277772601]
+layout_mode = 2
+text = "暂存"
+
+[node name="key_hold_button" type="Button" parent="SettingArea/Panel/KeyBindings/KeyRow_Hold" unique_id=236049638]
+layout_mode = 2
+
+[node name="SpeedSetting" type="VBoxContainer" parent="SettingArea/Panel" unique_id=705005031]
+layout_mode = 0
+offset_left = 337.0
+offset_top = 68.0
+offset_right = 567.0
+offset_bottom = 145.0
+
+[node name="DASRow" type="HBoxContainer" parent="SettingArea/Panel/SpeedSetting" unique_id=1303380305]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SettingArea/Panel/SpeedSetting/DASRow" unique_id=1413224797]
+layout_mode = 2
+text = "DAS"
+
+[node name="das_slider" type="HSlider" parent="SettingArea/Panel/SpeedSetting/DASRow" unique_id=466573327]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+min_value = 0.1
+max_value = 50.0
+step = 0.1
+value = 10.0
+
+[node name="das_value_label" type="Label" parent="SettingArea/Panel/SpeedSetting/DASRow" unique_id=1349361955]
+layout_mode = 2
+
+[node name="ARRRow" type="HBoxContainer" parent="SettingArea/Panel/SpeedSetting" unique_id=1323578532]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SettingArea/Panel/SpeedSetting/ARRRow" unique_id=1351602773]
+layout_mode = 2
+text = "ARR"
+
+[node name="arr_slider" type="HSlider" parent="SettingArea/Panel/SpeedSetting/ARRRow" unique_id=1893867920]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+max_value = 50.0
+step = 0.1
+value = 10.0
+
+[node name="arr_value_label" type="Label" parent="SettingArea/Panel/SpeedSetting/ARRRow" unique_id=399678698]
+layout_mode = 2
+
+[node name="SoftDropRow" type="HBoxContainer" parent="SettingArea/Panel/SpeedSetting" unique_id=1821080626]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SettingArea/Panel/SpeedSetting/SoftDropRow" unique_id=651227428]
+layout_mode = 2
+text = "SFARR"
+
+[node name="softdrop_slider" type="HSlider" parent="SettingArea/Panel/SpeedSetting/SoftDropRow" unique_id=815572835]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+max_value = 50.0
+step = 0.1
+value = 10.0
+
+[node name="softdrop_value_label" type="Label" parent="SettingArea/Panel/SpeedSetting/SoftDropRow" unique_id=548720238]
+layout_mode = 2
+
+[node name="hint_label" type="Label" parent="SettingArea/Panel" unique_id=1549985471]
+layout_mode = 0
+offset_left = 339.0
+offset_top = 199.0
+offset_right = 379.0
+offset_bottom = 222.0
+
+[node name="Buttons" type="HBoxContainer" parent="SettingArea/Panel" unique_id=1728242645]
+layout_mode = 0
+offset_left = 339.0
+offset_top = 225.0
+offset_right = 379.0
+offset_bottom = 265.0
+
+[node name="save_button" type="Button" parent="SettingArea/Panel/Buttons" unique_id=632133025]
+layout_mode = 2
+text = "保存"
+
+[node name="reset_button" type="Button" parent="SettingArea/Panel/Buttons" unique_id=228658165]
+layout_mode = 2
+text = "重置"
+
+[node name="back_button" type="Button" parent="SettingArea/Panel/Buttons" unique_id=636715014]
+layout_mode = 2
+text = "返回"
