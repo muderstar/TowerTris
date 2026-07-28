@@ -119,6 +119,11 @@ var combo_count: int = 0
 var btb_count: int = 0
 var is_btb_active: bool = false
 var spin0_btb_enabled: bool = false  # Spin0是否触发BTB（由buff控制）
+var tetris_allspin: int = 0          # 0=关闭, 1=启用Allspin
+
+# Allspin：记录上次消行类型和行数（用于下一次消行时比对）
+var _last_clear_type: String = ""    # 上次消行类型（如"T-Spin"、"Mini T-Spin"、"I-Spin"、""等）
+var _last_clear_count: int = 0       # 上次消行行数
 
 # PC状态
 var current_pc_text: String = ""
@@ -265,6 +270,9 @@ func check_and_clear_lines() -> int:
 			# 正常情况下spin0不触发BTB也不断开BTB
 			
 			reset_rotation_record()
+			# 记录Spin0消行信息
+			_last_clear_type = spin_type
+			_last_clear_count = 0
 		else:
 			combo_count = 0
 			reset_rotation_record()
@@ -272,6 +280,10 @@ func check_and_clear_lines() -> int:
 			has_cleared_lines = false
 			clear_texts_except_btb()
 		return 0
+	
+	# Allspin判定：落块时判定此消行是否与上次完全一致
+	var is_allspin_repeat: bool = (tetris_allspin == 1 and clear_count > 0
+		and clear_count == _last_clear_count and spin_type == _last_clear_type)
 	
 	has_cleared_lines = true
 	var is_spin = not spin_type.is_empty()
@@ -315,6 +327,14 @@ func check_and_clear_lines() -> int:
 	
 	reset_rotation_record()
 	combo_count += 1
+	
+	# Allspin延续：消行计算完成后直接上涨一行垃圾行（不走延迟队列，类似突然死亡VIII）
+	if is_allspin_repeat and garbage_line_controller:
+		garbage_line_controller.insert_allspin_garbage_directly()
+	
+	# 记录本次消行信息（供下次Allspin比对）
+	_last_clear_type = spin_type
+	_last_clear_count = clear_count
 	
 	return clear_count
 
@@ -385,7 +405,9 @@ func _calculate_damage(clear_count: int, spin_type: String) -> int:
 			else:
 				spin_damage = base_damage_table.get(clear_count, 0)
 		else:
-			spin_damage = base_damage_table.get(clear_count, 0)
+			# 非Mini非T-Spin的全旋（如"I-Spin"、"L-Spin"等）→ 使用T-Spin伤害表作为通用全旋伤害
+			var full_spin_data: Dictionary = spin_damage_table.get("T-Spin", {})
+			spin_damage = full_spin_data.get(clear_count, base_damage_table.get(clear_count, 0))
 		
 		base_damage = 0
 	else:
@@ -509,6 +531,10 @@ func _detect_spin_type() -> String:
 	if last_rotation_piece_type == "T":
 		# T块卡住 → 全 T-Spin
 		return "T-Spin"
+	
+	if tetris_allspin == 1:
+		# Allspin模式：非T块卡住 → 全 Spin（不加 Mini 前缀）
+		return last_rotation_piece_type + "-Spin"
 	
 	# 非T块卡住 → 视作 Mini Spin
 	return "Mini " + last_rotation_piece_type + "-Spin"

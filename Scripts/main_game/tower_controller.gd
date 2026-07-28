@@ -135,6 +135,9 @@ func _extra_data_deal():
 	
 	if extra_data_dict.has("spin0_btb_enabled"):
 		clear_line_controller.spin0_btb_enabled = extra_data_dict["spin0_btb_enabled"]
+	
+	if extra_data_dict.has("tetris_allspin"):
+		clear_line_controller.tetris_allspin = extra_data_dict["tetris_allspin"]
 
 func _set_timer():
 	garbage_sent_timer = Timer.new()

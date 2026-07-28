@@ -15,7 +15,7 @@ start_button = NodePath("../BottomRightArea/StartButton")
 top_scroll_container = NodePath("../TopArea/TopScrollContainer")
 middle_scroll_container = NodePath("../MiddleLeftArea/MiddleScrollContainer")
 buff_list = NodePath("../MiddleLeftArea/MiddleScrollContainer/BuffList")
-toggle_boxes = [NodePath("../TopArea/TopScrollContainer/ToggleGrid/List1/Pressure1"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List1/Pressure2"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List1/Pressure3"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List2/VBoxContainer/StrengthA"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List2/VBoxContainer/StrengthB"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List3/GravityA"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_1"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_2"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_3"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_4"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_5"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_6"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_7"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_8"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_9"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_10"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List5/Invisible_1")]
+toggle_boxes = [NodePath("../TopArea/TopScrollContainer/ToggleGrid/List1/Pressure1"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List1/Pressure2"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List1/Pressure3"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List2/VBoxContainer/StrengthA"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List2/VBoxContainer/StrengthB"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List3/GravityA"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_1"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_2"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_3"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_4"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_5"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_6"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_7"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_8"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_9"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_10"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List5/Invisible_1"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List6/Allspin_1")]
 
 [node name="TopArea" type="ColorRect" parent="CanvasLayer" unique_id=1035801558]
 anchors_preset = -1
@@ -252,6 +252,24 @@ script = ExtResource("3_7sx2r")
 layout_mode = 2
 script = ExtResource("2_7sx2r")
 box_id = "Invisible_1"
+box_size = 32
+default_checked = false
+
+[node name="List6" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=1517168648]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 272.0
+offset_right = 21.0
+offset_bottom = 304.0
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List6" unique_id=156552397]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="Allspin_1" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List6" unique_id=734234311]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "Allspin_1"
 box_size = 32
 default_checked = false
 

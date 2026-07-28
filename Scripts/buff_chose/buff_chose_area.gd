@@ -52,6 +52,7 @@ var _display_text_map: Dictionary = {
 	"SuddenlyDeath_9": "突然死亡IV：垃圾行在缓冲结束后就会一次性全部上涨，缓冲时间大幅度缩短",
 	"SuddenlyDeath_10": "突然死亡X：垃圾行在缓冲结束后就会一次性全部上涨，缓冲时间极大幅度缩短",
 	"Invisible_1":"隐形I：开启隐形",
+	"Allspin_1":"全旋I：启用Allspin，当消行类型与行数都与上次完全一致时立刻上涨一行垃圾行",
 }
 
 
@@ -113,6 +114,7 @@ var _buff_config_map: Dictionary = {
 	"SuddenlyDeath_9": {"suddenly_death_mode": true,"drop_limit_cancel":true,"buffer_duration":1},
 	"SuddenlyDeath_10": {"suddenly_death_mode": true,"drop_limit_cancel":true,"buffer_duration":0.5},
 	"Invisible_1": {"tetris_invisible": 1},
+	"Allspin_1": {"tetris_allspin": 1},
 }
 
 # ToggleBox 节点引用（可在编辑器中拖入或由代码动态添加）

@@ -212,7 +212,7 @@ func has_buffered_garbage() -> bool:
 ## ========== 强制上涨系统（核心功能） ==========
 
 ## 强制上涨行数（通用功能，支持自定义行数据生成器）
-func force_raise_rows(row_count: int, row_generator: Callable) -> bool:
+func force_raise_rows(row_count: int, row_generator: Callable, skip_piece_handling: bool = false) -> bool:
 	if row_count <= 0:
 		return false
 	
@@ -221,7 +221,7 @@ func force_raise_rows(row_count: int, row_generator: Callable) -> bool:
 	
 	# 如果tetris_controller存在，先清除当前方块并记录其位置
 	var current_pos = null
-	if tetris_controller:
+	if tetris_controller and not skip_piece_handling:
 		# 保存当前方块位置
 		current_pos = tetris_controller.current_position
 		# 清除当前方块（从版面上移除）
@@ -288,8 +288,8 @@ func force_raise_rows(row_count: int, row_generator: Callable) -> bool:
 			tetris_controller._game_over("方块堆积过高")
 		return false
 	
-	# 如果tetris_controller存在，恢复当前方块（位置向上移动row_count行）
-	if tetris_controller and current_pos != null:
+	# 如果tetris_controller存在且需要处理当前方块，恢复当前方块（位置向上移动row_count行）
+	if tetris_controller and not skip_piece_handling and current_pos != null:
 		# 计算新位置：Y坐标向上移动row_count行（减小）
 		var new_pos = Vector2i(current_pos.x, current_pos.y - row_count)
 		
@@ -724,6 +724,36 @@ func process_garbage_after_lock() -> int:
 		_move_enter_to_rise_queue()
 		# 不返回 0 表示有数据进入队列
 		return _pending_rise_queue.size()
+
+## Allspin：上涨 x 行标准垃圾行（直接插入版面，不走延迟队列，消行完成后调用）
+func insert_allspin_garbage_directly(row_count: int = 1) -> void:
+	if row_count <= 0:
+		return
+	var all_holes = []
+	for i in range(row_count):
+		var hole = _get_next_hole_position()
+		if hole.is_empty():
+			return
+		all_holes.append(hole)
+	# 创建行生成器
+	var gen = _generate_garbage_row_generator(all_holes[0], false)
+	force_raise_rows(row_count, gen, true)
+
+## Allspin：上涨 x 行标准垃圾行（直接推到上升队列最前面）
+func add_allspin_garbage(row_count: int = 1) -> void:
+	if row_count <= 0:
+		return
+	for i in range(row_count):
+		var hole = _get_next_hole_position()
+		if hole.is_empty():
+			return
+		_pending_rise_queue.push_front({
+			"holes": hole,
+			"is_buffered": false,
+			"color": garbage_color,
+			"empty_color": null,
+		})
+	_start_rise_timer()
 
 ## 检查当前是否有待处理的垃圾行
 func has_pending_garbage() -> bool:
