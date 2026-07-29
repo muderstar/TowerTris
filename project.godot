@@ -20,7 +20,7 @@ config/icon="res://icon.svg"
 GlobalData="*uid://bq6teubyr32be"
 InputInitializer="*uid://c88w1mvvcvtkd"
 RandomManager="*uid://cb7njqcblkv5s"
-UiScaler="*uid://cwol84ijeucms"
+UIScaler="*uid://cwol84ijeucms"
 
 [input]
 
