@@ -43,14 +43,14 @@ jobs:
 
       # Step 1: Conditional Builds
       - name: Export Windows Desktop
-        if: ${{ github.event.inputs.target_platform == 'Windows' || github.event.inputs.target_platform == 'Both' || github.event_name == 'push' }}
+        if: ${{ inputs.target_platform == 'Windows' || inputs.target_platform == 'Both' || github.event_name == 'push' }}
         run: |
           mkdir -p build/win
           godot --headless --export-release "Windows Desktop" build/win/TowerTetris.exe
           cd build/win && zip -r ../../TowerTetris-Windows.zip . && cd ../..
 
       - name: Export Linux
-        if: ${{ github.event.inputs.target_platform == 'Linux' || github.event.inputs.target_platform == 'Both' }}
+        if: ${{ inputs.target_platform == 'Linux' || inputs.target_platform == 'Both' }}
         run: |
           mkdir -p build/linux
           godot --headless --export-release "Linux" build/linux/TowerTetris.x86_64
@@ -62,6 +62,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
           tag_name: ${{ github.ref_name || format('build-{0}', github.run_number) }}
-          name: Release ${{ github.ref_name || format('Build #{0}', github.run_number) }}
+          name: ${{ github.ref_name || format('Build #{0}', github.run_number) }}
           files: |
             TowerTetris-*.zip
