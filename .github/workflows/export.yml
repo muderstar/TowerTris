@@ -1,17 +1,36 @@
-- name: Build Godot
-  # You may pin to the exact commit or the version.
-  # uses: yeslayla/build-godot-action@11589640849ce5bd1bab945c694bb418cb06cb15
-  uses: yeslayla/build-godot-action@v1.4.1
-  with:
-    # Name of the exported binary
-    name: 
-    # Name of the preset in `export_presets.cfg` to use
-    preset: 
-    # Optional name of the subdirectory to put exported project in
-    subdirectory: # optional, default is 
-    # Set true to output an artifact zip file
-    package: # optional
-    # Location of Godot project in repository
-    projectDir: # optional, default is .
-    # Whether or not to use `--export-debug`
-    debugMode: # optional
+name: Export Godot Project
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:   # allows manual trigger
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true   # only needed if you use Git LFS
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0          # ← change to your exact Godot version
+          include-templates: true
+
+      - name: Export Linux
+        run: |
+          mkdir -p build
+          godot --headless --export-release "Linux/X11" build/game.x86_64
+
+      - name: Export Windows
+        run: |
+          godot --headless --export-release "Windows Desktop" build/game.exe
+
+      - name: Upload builds
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-builds
+          path: build/
