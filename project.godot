@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="TowerTris"
-run/main_scene="uid://bmur5xqe7u7ww"
+run/main_scene="res://Tscns/main_menu.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 
