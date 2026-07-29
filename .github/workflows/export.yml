@@ -2,35 +2,39 @@ name: Export Godot Project
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:   # allows manual trigger
+    branches: [ main, master ]
+  workflow_dispatch:   # allows you to run it manually
 
 jobs:
   export:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          lfs: true   # only needed if you use Git LFS
+          lfs: true
 
-      - name: Setup Godot
+      - name: Setup Godot 4.3 (.NET / Mono)
         uses: chickensoft-games/setup-godot@v2
         with:
-          version: 4.3.0          # ← change to your exact Godot version
+          version: 4.3.0
+          dotnet: true              # important! your project uses the mono version
           include-templates: true
 
-      - name: Export Linux
+      - name: Import project (generate .godot + fix UIDs)
+        run: |
+          godot --headless --editor --quit-after 120
+
+      - name: Export Windows + Linux
         run: |
           mkdir -p build
-          godot --headless --export-release "Linux/X11" build/game.x86_64
-
-      - name: Export Windows
-        run: |
-          godot --headless --export-release "Windows Desktop" build/game.exe
+          godot --headless --export-release "Windows Desktop" build/TowerTetris.exe
+          godot --headless --export-release "Linux" build/TowerTetris.x86_64
 
       - name: Upload builds
         uses: actions/upload-artifact@v4
         with:
-          name: game-builds
+          name: TowerTetris-Builds
           path: build/
+          retention-days: 14
