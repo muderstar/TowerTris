@@ -15,6 +15,11 @@ jobs:
         with:
           lfs: true
 
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x' # Use 8.0 for Godot 4.3
+
       - name: Setup Godot 4.3 (.NET)
         uses: chickensoft-games/setup-godot@v2
         with:
@@ -22,16 +27,24 @@ jobs:
           dotnet: true
           include-templates: true
 
-      - name: Full project import
+      # Step 1: Restore and build C# assemblies first so Godot can load scripts
+      - name: Build C# Project
         run: |
-          rm -rf .godot
-          godot --headless --verbose --editor --quit-after 300
+          dotnet restore
+          dotnet build --configuration Release
 
+      # Step 2: Run two import passes to ensure UIDs and cache are fully written
+      - name: Full project import & UID cache generation
+        run: |
+          godot --headless --editor --quit || true
+          godot --headless --editor --quit || true
+
+      # Step 3: Export release binaries
       - name: Export Linux + Windows
         run: |
           mkdir -p build
-          godot --headless --verbose --export-release "Linux" build/TowerTetris.x86_64
-          godot --headless --verbose --export-release "Windows Desktop" build/TowerTetris.exe
+          godot --headless --export-release "Linux" build/TowerTetris.x86_64
+          godot --headless --export-release "Windows Desktop" build/TowerTetris.exe
 
       - name: Show build sizes
         run: ls -lh build/
