@@ -17,10 +17,10 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-GlobalData="*uid://bq6teubyr32be"
-InputInitializer="*uid://c88w1mvvcvtkd"
-RandomManager="*uid://cb7njqcblkv5s"
-UIScaler="*uid://cwol84ijeucms"
+GlobalData="*res://Scripts/auto_load/global_data.gd"
+InputInitializer="*res://Scripts/auto_load/input_initializer.gd"
+RandomManager="*res://Scripts/auto_load/random_manager.gd"
+UiScaler="*res://Scripts/auto_load/ui_scaler.gd"
 
 [input]
 
