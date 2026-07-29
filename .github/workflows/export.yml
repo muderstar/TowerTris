@@ -45,15 +45,15 @@ jobs:
         if: ${{ inputs.target_platform == 'Windows' || inputs.target_platform == 'Both' || github.event_name == 'push' }}
         run: |
           mkdir -p build/win
-          godot --headless --export-release "Windows Desktop" build/win/TowerTetris.exe
-          cd build/win && zip -r ../../TowerTetris-Windows.zip . && cd ../..
+          godot --headless --export-release "Windows Desktop" build/win/TowerTris.exe
+          cd build/win && zip -r ../../TowerTris-Windows.zip . && cd ../..
 
       - name: Export Linux
         if: ${{ inputs.target_platform == 'Linux' || inputs.target_platform == 'Both' }}
         run: |
           mkdir -p build/linux
-          godot --headless --export-release "Linux" build/linux/TowerTetris.x86_64
-          cd build/linux && zip -r ../../TowerTetris-Linux.zip . && cd ../..
+          godot --headless --export-release "Linux" build/linux/TowerTris.x86_64
+          cd build/linux && zip -r ../../TowerTris-Linux.zip . && cd ../..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -62,4 +62,4 @@ jobs:
           tag_name: "build-${{ github.run_number }}"
           name: "Release Build #${{ github.run_number }}"
           files: |
-            TowerTetris-*.zip
+            TowerTris-*.zip
