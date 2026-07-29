@@ -19,15 +19,13 @@ jobs:
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.3.0
-          dotnet: false # Standard Godot build for GDScript
+          use-dotnet: false
           include-templates: true
 
-      - name: Import project & generate UID cache
+      - name: Rebuild UID cache & import assets
         run: |
-          # Import all resources and update uid_cache.bin
-          godot --headless --import || true
-          # Double pass in editor mode to flush UID path mapping to disk
-          godot --headless --editor --quit || true
+          godot --headless --path . --import || true
+          godot --headless --path . --editor --quit || true
 
       - name: Export Linux + Windows
         run: |
