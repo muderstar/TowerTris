@@ -1,22 +1,44 @@
-- name: Setup Godot 4.3 (.NET)
-  uses: chickensoft-games/setup-godot@v2
-  with:
-    version: 4.3.0
-    dotnet: true
-    include-templates: true
+name: Export Godot Project
 
-- name: Full project import (important)
-  run: |
-    # Force full reimport
-    rm -rf .godot
-    godot --headless --verbose --editor --quit-after 300
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
 
-- name: Export
-  run: |
-    mkdir -p build
-    godot --headless --verbose --export-release "Linux" build/TowerTetris.x86_64
-    godot --headless --verbose --export-release "Windows Desktop" build/TowerTetris.exe
+jobs:
+  export:
+    runs-on: ubuntu-latest
 
-- name: Show build sizes
-  run: |
-    ls -lh build/
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup Godot 4.3 (.NET)
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          dotnet: true
+          include-templates: true
+
+      - name: Full project import
+        run: |
+          rm -rf .godot
+          godot --headless --verbose --editor --quit-after 300
+
+      - name: Export Linux + Windows
+        run: |
+          mkdir -p build
+          godot --headless --verbose --export-release "Linux" build/TowerTetris.x86_64
+          godot --headless --verbose --export-release "Windows Desktop" build/TowerTetris.exe
+
+      - name: Show build sizes
+        run: ls -lh build/
+
+      - name: Upload builds
+        uses: actions/upload-artifact@v4
+        with:
+          name: TowerTetris-Builds
+          path: build/
+          retention-days: 14
