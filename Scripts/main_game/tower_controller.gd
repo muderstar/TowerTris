@@ -24,17 +24,21 @@ var garbage_collect_percent_array: Array = [0.4,0.3,0.2,0.1,0.1,0.2,0.2,0.3,0.3,
 var garbage_sent_time : float = 0
 var garbage_divide_percent : float = 0
 var garbage_divide_percent_array: Array = [0.8,0.6,0.4,0.2,0.2,0.1,0.1,0,0.1,0.2,0.3]
+var garbage_hole_change_percent_array: Array = [0.1,0.1,0.1,0.2,0.4,0.5,0.6,0.7,0.8,0.9]
 var collected_count : int = 0
 var collected_garbage : Array = []
 var pressure_mult : float = 1.0
 var send_mult_attack: float = 1
 var pressure_mult_array: Array = [1,1,1,1,1,1,1,1,1,1,1.25,1.5,2,2.5,3,4,5,7,10]
 
+var gravity_drop_time_array: Array = [5]
+var lock_delay_array: Array = [1]
+
 var tower_meter: float = 0.0            
 var tower_speed_meter: float = 0.0      
 var tower_lowest_speed: float = 0.1
 var tower_dropped_speed: float = 0.01
-var tower_dropped_mult: Array = [1,1,1,1,1,1.1,1.2,1.3,1.4,1.5,1.7,1.9,2]
+var tower_dropped_mult: Array = [0.8,0.9,1,1,1,1.1,1.2,1.3,1.4,1.5,1.7,1.9,2]
 var tower_current_dropped_mult: float = 1.0
 var attack_to_meter_mult: float = 0.2
 var attack_to_speed_mult: float = 0.1
@@ -130,14 +134,24 @@ func _extra_data_deal():
 		if board_drawer:
 			board_drawer.drop_visible_time = extra_data_dict["drop_visible_time"]
 	
-	if extra_data_dict.has("gravity_drop_time"):
-		tetris_controller.gravity_drop_time = extra_data_dict["gravity_drop_time"]
-	
 	if extra_data_dict.has("spin0_btb_enabled"):
 		clear_line_controller.spin0_btb_enabled = extra_data_dict["spin0_btb_enabled"]
 	
 	if extra_data_dict.has("tetris_allspin"):
 		clear_line_controller.tetris_allspin = extra_data_dict["tetris_allspin"]
+
+	# Talentless（无才能）：为true时跳过整个Spin判定
+	if extra_data_dict.has("NoSpin"):
+		if clear_line_controller:
+			clear_line_controller.no_spin = bool(extra_data_dict["NoSpin"])
+	
+	# NoHold模式：关闭Hold显示并禁用Hold输入（JSON中键名为"NoHold"）
+	if extra_data_dict.has("NoHold") or extra_data_dict.has("no_hold"):
+		var no_hold_value: bool = extra_data_dict.get("NoHold", extra_data_dict.get("no_hold", false))
+		if tetris_controller:
+			tetris_controller.no_hold = no_hold_value
+		if board_drawer:
+			board_drawer.no_hold = no_hold_value
 
 func _set_timer():
 	garbage_sent_timer = Timer.new()
@@ -170,6 +184,9 @@ func _process(delta: float) -> void:
 	current_apm = total_apm * pressure_mult * max_percent
 	garbage_collect_percent = default_get_oneD_array_things(current_stage,garbage_collect_percent_array)
 	garbage_divide_percent = default_get_oneD_array_things(current_stage,garbage_divide_percent_array)
+	garbage_line_controller.garbage_messy = default_get_oneD_array_things(current_stage,garbage_hole_change_percent_array)
+	tetris_controller.gravity_drop_time = default_get_oneD_array_things(current_stage,gravity_drop_time_array)
+	tetris_controller.lock_delay = default_get_oneD_array_things(current_stage,lock_delay_array)
 	
 	if garbage_sent_time != 0 and garbage_sent_timer.is_stopped():
 		garbage_sent_timer.wait_time = garbage_sent_time + tower_rng.randf_range(-garbage_sent_time/2.0,garbage_sent_time/2.0)
@@ -184,7 +201,7 @@ func _tower_climb(delta: float):
 		tower_speed_meter = tower_lowest_speed
 	elif tower_speed_meter > tower_lowest_speed:
 		var x = tower_speed_meter
-		tower_speed_meter -= ((x*log(x) + x)/130.0) * delta * tower_current_dropped_mult
+		tower_speed_meter -= ((x*log(x) + x)/120.0) * delta * tower_current_dropped_mult
 	else:
 		pass
 	

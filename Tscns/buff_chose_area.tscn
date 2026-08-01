@@ -8,14 +8,13 @@
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1516909918]
 
-[node name="buff_chose_area" type="Node2D" parent="CanvasLayer" unique_id=939419095 node_paths=PackedStringArray("back_button", "start_button", "top_scroll_container", "middle_scroll_container", "buff_list", "toggle_boxes")]
+[node name="buff_chose_area" type="Node2D" parent="CanvasLayer" unique_id=939419095 node_paths=PackedStringArray("back_button", "start_button", "top_scroll_container", "middle_scroll_container", "buff_list")]
 script = ExtResource("1_7sx2r")
 back_button = NodePath("../BottomRightArea/BackButton")
 start_button = NodePath("../BottomRightArea/StartButton")
 top_scroll_container = NodePath("../TopArea/TopScrollContainer")
 middle_scroll_container = NodePath("../MiddleLeftArea/MiddleScrollContainer")
 buff_list = NodePath("../MiddleLeftArea/MiddleScrollContainer/BuffList")
-toggle_boxes = [NodePath("../TopArea/TopScrollContainer/ToggleGrid/List1/Pressure1"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List1/Pressure2"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List1/Pressure3"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List2/VBoxContainer/StrengthA"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List2/VBoxContainer/StrengthB"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List3/GravityA"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_1"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_2"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_3"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_4"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_5"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_6"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_7"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_8"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_9"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List4/SuddenlyDeath_10"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List5/Invisible_1"), NodePath("../TopArea/TopScrollContainer/ToggleGrid/List6/Allspin_1")]
 
 [node name="TopArea" type="ColorRect" parent="CanvasLayer" unique_id=1035801558]
 anchors_preset = -1
@@ -25,9 +24,12 @@ mouse_filter = 2
 color = Color(0.45, 0.45, 0.45, 1)
 
 [node name="TopScrollContainer" type="ScrollContainer" parent="CanvasLayer/TopArea" unique_id=1904204260]
-layout_mode = 0
+layout_mode = 1
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 size_flags_horizontal = 3
 vertical_scroll_mode = 0
 
@@ -40,6 +42,10 @@ offset_left = 10.0
 offset_top = 20.0
 offset_right = 82.0
 offset_bottom = 52.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List1" unique_id=386797402]
+layout_mode = 2
+text = "压力："
 
 [node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List1" unique_id=1000000011]
 layout_mode = 2
@@ -76,10 +82,14 @@ default_checked = false
 
 [node name="List2" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=2147342561]
 layout_mode = 0
-offset_left = 33.0
+offset_left = 10.0
 offset_top = 64.0
-offset_right = 105.0
+offset_right = 82.0
 offset_bottom = 96.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List2" unique_id=1041193734]
+layout_mode = 2
+text = "力量："
 
 [node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List2" unique_id=191428437]
 layout_mode = 2
@@ -104,19 +114,23 @@ default_checked = false
 
 [node name="List3" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=484722952]
 layout_mode = 0
-offset_left = 9.0
+offset_left = 10.0
 offset_top = 142.0
-offset_right = 81.0
+offset_right = 82.0
 offset_bottom = 174.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List3" unique_id=449802108]
+layout_mode = 2
+text = "重力："
 
 [node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List3" unique_id=1379718408]
 layout_mode = 2
 script = ExtResource("3_7sx2r")
 
-[node name="GravityA" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List3" unique_id=270907690]
+[node name="Gravity_1" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List3" unique_id=270907690]
 layout_mode = 2
 script = ExtResource("2_7sx2r")
-box_id = "GravityA"
+box_id = "Gravity_1"
 box_size = 32
 default_checked = false
 
@@ -126,6 +140,10 @@ offset_left = 9.0
 offset_top = 184.0
 offset_right = 470.0
 offset_bottom = 216.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=534188387]
+layout_mode = 2
+text = "垃圾行缓冲："
 
 [node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=712380696]
 layout_mode = 2
@@ -244,6 +262,10 @@ offset_top = 230.0
 offset_right = 81.0
 offset_bottom = 262.0
 
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List5" unique_id=2106262616]
+layout_mode = 2
+text = "隐形："
+
 [node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List5" unique_id=2026337300]
 layout_mode = 2
 script = ExtResource("3_7sx2r")
@@ -257,10 +279,14 @@ default_checked = false
 
 [node name="List6" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=1517168648]
 layout_mode = 0
-offset_left = 17.0
+offset_left = 9.0
 offset_top = 272.0
-offset_right = 21.0
+offset_right = 65.0
 offset_bottom = 304.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List6" unique_id=1979673050]
+layout_mode = 2
+text = "全旋："
 
 [node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List6" unique_id=156552397]
 layout_mode = 2
@@ -270,6 +296,50 @@ script = ExtResource("3_7sx2r")
 layout_mode = 2
 script = ExtResource("2_7sx2r")
 box_id = "Allspin_1"
+box_size = 32
+default_checked = false
+
+[node name="List7" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=202804398]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 312.0
+offset_right = 81.0
+offset_bottom = 344.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List7" unique_id=1686125779]
+layout_mode = 2
+text = "无暂存："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List7" unique_id=1366149505]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="NoHold_1" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List7" unique_id=734968014]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "NoHold_1"
+box_size = 32
+default_checked = false
+
+[node name="List8" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=1495507124]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 351.0
+offset_right = 82.0
+offset_bottom = 383.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List8" unique_id=329050884]
+layout_mode = 2
+text = "无Spin判定："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List8" unique_id=714722812]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="Talentless" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List8" unique_id=171872954]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "Talentless"
 box_size = 32
 default_checked = false
 

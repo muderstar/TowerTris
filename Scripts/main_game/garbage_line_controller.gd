@@ -9,12 +9,11 @@ class_name TetrisGarbageLineController
 @export var tetris_controller: TetrisController  # 方块控制器引用（用于清除当前方块）
 
 # 垃圾行配置
-@export var garbage_cap: int = 3                      # 垃圾行最大数量（与版面garbage_cap对应）
+@export var garbage_cap: int = 3                      # 每次锁定最多增长的垃圾行数量（也用于版面garbage_cap线）
 @export var garbage_messy: float = 0.9               # 垃圾行更换洞口的概率（0-1）
 @export var garbage_color: Color = Color(0.5, 0.5, 0.5, 1.0)  # 垃圾行颜色（浅灰色）
 @export var solid_garbage_color: Color = Color(0.55, 0.55, 0.55, 1.0)  # 实心垃圾行颜色（浅灰色）
 @export var garbage_empty_color: Color = Color(0.08, 0.08, 0.08, 1.0)  # 垃圾行洞口颜色（与版面背景一致）
-@export var max_garbage_per_lock: int = 8            # 每次锁定最多增长的垃圾行数（应与garbage_cap对应）
 
 # 垃圾缓冲配置
 @export var buffer_duration: float = 3.0             # 垃圾缓冲时间（秒）
@@ -217,7 +216,7 @@ func force_raise_rows(row_count: int, row_generator: Callable, skip_piece_handli
 		return false
 	
 	# 限制单次上涨数量
-	row_count = min(row_count, max_garbage_per_lock)
+	row_count = min(row_count, garbage_cap)
 	
 	# 如果tetris_controller存在，先清除当前方块并记录其位置
 	var current_pos = null
@@ -488,12 +487,12 @@ func prepare_garbage_for_lock() -> int:
 	if garbage_enter_array.is_empty():
 		return 0
 	
-	# 计算本次要增长的垃圾行数量（最多max_garbage_per_lock行）
+	# 计算本次要增长的垃圾行数量（最多garbage_cap行）
 	var total_available = 0
 	for entry in garbage_enter_array:
 		total_available += entry["count"]
 	
-	var total_to_process = min(total_available, max_garbage_per_lock)
+	var total_to_process = min(total_available, garbage_cap)
 	
 	if total_to_process <= 0:
 		return 0
@@ -564,7 +563,7 @@ func prepare_garbage_for_lock() -> int:
 		
 		enter_index += 1
 	
-	# 如果还有溢出的行（超过了max_garbage_per_lock），保存当前洞口用于下次
+	# 如果还有溢出的行（超过了garbage_cap），保存当前洞口用于下次
 	if total_available > total_to_process and has_current_hole:
 		has_overflow = true
 		current_active_hole = current_hole.duplicate()
@@ -592,7 +591,7 @@ func apply_garbage_to_board() -> bool:
 		total_garbage_rows += batch["count"]
 	
 	# 限制总垃圾行数
-	total_garbage_rows = min(total_garbage_rows, max_garbage_per_lock)
+	total_garbage_rows = min(total_garbage_rows, garbage_cap)
 	
 	if total_garbage_rows <= 0:
 		is_garbage_locked = false
@@ -779,7 +778,7 @@ func _move_enter_to_rise_queue() -> int:
 		total_available += entry["count"]
 	
 	# 限流
-	var total_rows = min(total_available, max_garbage_per_lock)
+	var total_rows = min(total_available, garbage_cap)
 	
 	# 清空待处理
 	_pending_rise_queue.clear()

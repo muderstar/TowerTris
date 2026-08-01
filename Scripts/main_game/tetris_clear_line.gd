@@ -120,6 +120,7 @@ var btb_count: int = 0
 var is_btb_active: bool = false
 var spin0_btb_enabled: bool = false  # Spin0是否触发BTB（由buff控制）
 var tetris_allspin: int = 0          # 0=关闭, 1=启用Allspin
+var no_spin: bool = false            # Talentless：为true时跳过整个Spin判定
 
 # Allspin：记录上次消行类型和行数（用于下一次消行时比对）
 var _last_clear_type: String = ""    # 上次消行类型（如"T-Spin"、"Mini T-Spin"、"I-Spin"、""等）
@@ -256,7 +257,8 @@ func check_and_clear_lines() -> int:
 		return 0
 	
 	lines_to_clear = _find_complete_lines()
-	var spin_type = _detect_spin_type()
+	# Talentless（无才能）：直接跳过整个Spin判定函数
+	var spin_type: String = "" if no_spin else _detect_spin_type()
 	var clear_count = lines_to_clear.size()
 	
 	if clear_count == 0:
@@ -515,6 +517,8 @@ func _clear_single_line(line_y: int):
 # ========== Spin检测系统 ==========
 
 func _detect_spin_type() -> String:
+	if no_spin:
+		return ""
 	if not spin_detection_enabled:
 		return ""
 	

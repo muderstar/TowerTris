@@ -73,6 +73,7 @@ var garbage_cap : int
 
 # Hold方块显示配置
 @export var hold_display_enabled: bool = true         # 是否启用Hold显示
+var no_hold: bool = false                             # NoHold模式：关闭Hold显示（由TowerController转发）
 @export var hold_display_offset_cells: int = -5       # Hold框相对版面的X偏移（以格子数为单位，负值在左侧）
 @export var hold_display_offset_y_cells: int = 0      # Hold框相对版面的Y偏移（以格子数为单位）
 @export var hold_display_width: int = 4               # Hold显示区域的格子宽度
@@ -86,8 +87,8 @@ var garbage_cap : int
 @export var next_display_enabled: bool = true         # 是否启用Next显示
 @export var next_display_offset_cells: int = 10       # Next框相对版面的X偏移（以格子数为单位，正值在右侧）
 @export var next_display_offset_y_cells: int = 0      # Next框相对版面的Y偏移（以格子数为单位）
-@export var next_display_width: int = 2               # 每个Next显示区域的格子宽度
-@export var next_display_height: int = 2              # 每个Next显示区域的格子高度
+@export var next_display_width: int = 4               # 每个Next显示区域的格子宽度
+@export var next_display_height: int = 3              # 每个Next显示区域的格子高度
 @export_range(1, 7) var next_count: int = 6          # 显示Next方块的数量（1-7）
 @export var next_spacing_cells: int = 0               # Next方块之间的间距（以格子数为单位）
 @export var next_background_color: Color = Color(0.1, 0.1, 0.1, 1.0)  # Next框背景色
@@ -811,6 +812,9 @@ func _get_hold_position() -> Vector2:
 ## 绘制Hold方块区域
 func _draw_hold_display():
 	if not hold_display_enabled:
+		return
+	# NoHold模式：关闭Hold显示
+	if no_hold:
 		return
 	
 	# 计算Hold框的位置（基于当前cell_size）

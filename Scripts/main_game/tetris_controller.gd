@@ -29,6 +29,7 @@ var hold_color: Color = Color.WHITE  # 暂存的方块颜色
 var hold_piece_type: String = ""   # 暂存的方块类型
 var hold_original_shape: Array = []  # 暂存方块的原始形状（用于Hold）
 var can_hold: bool = true          # 是否可以使用暂存（每回合只能使用一次）
+var no_hold: bool = false          # NoHold模式：禁用暂存（不读取Hold输入，也不执行交换）
 
 # 运动延迟系统
 var move_das: float = 0.1
@@ -829,6 +830,8 @@ func _get_rotated_matrix(piece: Array, direction: int) -> Array:
 
 ## 暂存当前方块
 func hold_current_piece():
+	if no_hold:
+		return false  # NoHold模式：禁用暂存
 	if not can_hold:
 		return false  # 本回合已使用过暂存
 	
@@ -1057,8 +1060,8 @@ func _process_input():
 	if press_key["SwapSpin"] == 1 and check_for_single_press["SwapSpin"] != 1:
 		rotate_180()
 	
-	# 暂存
-	if press_key["HoldBlock"] == 1 and check_for_single_press["HoldBlock"] != 1:
+	# 暂存（NoHold模式下不读取Hold输入）
+	if press_key["HoldBlock"] == 1 and check_for_single_press["HoldBlock"] != 1 and not no_hold:
 		hold_current_piece()
 	
 	# 硬降
