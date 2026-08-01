@@ -1,0 +1,65 @@
+name: Export Godot Project
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      target_platform:
+        description: 'Choose export target'
+        required: true
+        default: 'Windows'
+        type: choice
+        options:
+          - 'Windows'
+          - 'Linux'
+          - 'Both'
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup Godot 4.3 (Standard)
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          use-dotnet: false
+          include-templates: true
+
+      - name: Rebuild UID cache & import assets
+        run: |
+          godot --headless --path . --import || true
+          godot --headless --path . --editor --quit || true
+
+      - name: Export Windows Desktop
+        if: ${{ inputs.target_platform == 'Windows' || inputs.target_platform == 'Both' || github.event_name == 'push' }}
+        run: |
+          mkdir -p build/win
+          godot --headless --export-release "Windows Desktop" build/win/TowerTris.exe
+          cd build/win && zip -r ../../TowerTris-Windows.zip . && cd ../..
+
+      - name: Export Linux
+        if: ${{ inputs.target_platform == 'Linux' || inputs.target_platform == 'Both' }}
+        run: |
+          mkdir -p build/linux
+          godot --headless --export-release "Linux" build/linux/TowerTris.x86_64
+          cd build/linux && zip -r ../../TowerTris-Linux.zip . && cd ../..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: "build-${{ github.run_number }}"
+          name: "Release Build #${{ github.run_number }}"
+          files: |
+            TowerTris-*.zip
