@@ -1,0 +1,71 @@
+{
+	"BuffCombination":{
+		"ModernClassicTetris":{
+			"Info":"现代经典俄罗斯方块",
+			"Group":["Nohold","Gravity"]
+		},
+		"ClassicTetris":{
+			"Info":"经典俄罗斯方块",
+			"Group":["Nohold","Gravity","Talentless"]
+		}
+	},
+	"BuffGroup":{
+		"Pressure": ["Pressure1", "Pressure2", "Pressure3"],
+		"Suddenly_Death": ["SuddenlyDeath_1","SuddenlyDeath_2","SuddenlyDeath_3","SuddenlyDeath_4",
+			"SuddenlyDeath_5","SuddenlyDeath_6","SuddenlyDeath_7","SuddenlyDeath_8","SuddenlyDeath_9","SuddenlyDeath_10"],
+		"Gravity": ["Gravity_1"],
+		"NoHold": ["NoHold_1"],
+		"Talentless": ["Talentless"]
+	},
+	"BuffConflick":{
+		"Pressure": ["Pressure1", "Pressure2", "Pressure3"],
+		"Suddenly_Death": ["SuddenlyDeath_1","SuddenlyDeath_2","SuddenlyDeath_3","SuddenlyDeath_4",
+			"SuddenlyDeath_5","SuddenlyDeath_6","SuddenlyDeath_7","SuddenlyDeath_8","SuddenlyDeath_9","SuddenlyDeath_10"],
+		"Gravity": ["Gravity_1"],
+		"NoHold": ["NoHold_1"]
+	},
+	"BuffInfo":{
+		"Pressure1": "高压I：apm总量增加20%",
+		"Pressure2": "高压II：apm总量增加30%",
+		"Pressure3": "高压III：apm总量增加50%",
+		"StrengthA": "力量（受击）：受到双倍攻击",
+		"StrengthB": "力量（攻击）：双倍抵消受到的攻击",
+		"Gravity_1": "重力I：方块下落速度随着层数增加",
+		"SuddenlyDeath_1": "突然死亡I：垃圾行上涨速度略微增加",
+		"SuddenlyDeath_2": "突然死亡II：垃圾行上涨速度增加，并且上涨上限略微增加",
+		"SuddenlyDeath_3": "突然死亡III：垃圾行上涨速度大幅度增加，并且上涨上限增加",
+		"SuddenlyDeath_4": "突然死亡IV：垃圾行会一次性全部上涨",
+		"SuddenlyDeath_5": "突然死亡V：垃圾行会一次性全部上涨，并且上涨上限增加",
+		"SuddenlyDeath_6": "突然死亡VI：垃圾行会一次性全部上涨，并且上涨上限增加，缓冲时间大幅度缩短",
+		"SuddenlyDeath_7": "突然死亡VII：垃圾行会一次性全部上涨，并且上涨上限大幅度增加，几乎没有缓冲时间",
+		"SuddenlyDeath_8": "突然死亡VIII：垃圾行在缓冲结束后就会一次性全部上涨",
+		"SuddenlyDeath_9": "突然死亡IV：垃圾行在缓冲结束后就会一次性全部上涨，缓冲时间大幅度缩短",
+		"SuddenlyDeath_10": "突然死亡X：垃圾行在缓冲结束后就会一次性全部上涨，缓冲时间极大幅度缩短",
+		"Invisible_1":"隐形I：开启隐形",
+		"Allspin_1":"全旋I：启用Allspin，当消行类型与行数都与上次完全一致时立刻上涨一行垃圾行",
+		"NoHold_1":"无暂存I：禁用暂存",
+		"Talentless":"无天赋：禁用全部Spin"
+	},
+	"BuffChange":{
+		"Pressure1": {"total_apm_buff_mult": 1.2},
+		"Pressure2": {"total_apm_buff_mult": 1.3},
+		"Pressure3": {"total_apm_buff_mult": 1.5},
+		"StrengthA": {"send_mult_attack": 2.0},
+		"StrengthB": {"mult_defend": 2.0},
+		"Gravity_1": {"gravity_drop_time_array": [1,0.95,0.9,0.85,0.8,0.7,0.6,0.5,0.4,0.3]},
+		"SuddenlyDeath_1": {"garbage_rise_time_delay": 0.4},
+		"SuddenlyDeath_2": {"garbage_rise_time_delay": 0.3,"garbage_cap":5},
+		"SuddenlyDeath_3": {"garbage_rise_time_delay": 0.1,"garbage_cap":8},
+		"SuddenlyDeath_4": {"suddenly_death_mode": true},
+		"SuddenlyDeath_5": {"suddenly_death_mode": true,"garbage_cap":8},
+		"SuddenlyDeath_6": {"suddenly_death_mode": true,"garbage_cap":8,"buffer_duration":1},
+		"SuddenlyDeath_7": {"suddenly_death_mode": true,"garbage_cap":12,"buffer_duration":0.1},
+		"SuddenlyDeath_8": {"suddenly_death_mode": true,"drop_limit_cancel":true},
+		"SuddenlyDeath_9": {"suddenly_death_mode": true,"drop_limit_cancel":true,"buffer_duration":1},
+		"SuddenlyDeath_10": {"suddenly_death_mode": true,"drop_limit_cancel":true,"buffer_duration":0.5},
+		"Invisible_1": {"tetris_invisible": 1},
+		"Allspin_1": {"tetris_allspin": 1},
+		"NoHold_1": {"NoHold": true},
+		"Talentless": {"NoSpin": true}
+	}
+}
