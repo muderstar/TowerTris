@@ -1,5 +1,7 @@
 # Godot 4+ specific ignores
 .godot/
+project.binary
+*.remap
 .nomedia
 
 # Godot-specific ignores
