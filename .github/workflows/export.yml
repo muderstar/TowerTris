@@ -29,17 +29,18 @@ jobs:
         with:
           lfs: true
 
-      - name: Setup Godot 4.3 (Standard)
+      - name: Setup Godot 4.7 (Standard)
         uses: chickensoft-games/setup-godot@v2
         with:
-          version: 4.3.0
+          version: 4.7.1
           use-dotnet: false
           include-templates: true
 
       - name: Rebuild UID cache & import assets
         run: |
-          godot --headless --path . --import || true
-          godot --headless --path . --editor --quit || true
+          rm -f project.binary
+          find . -name "*.remap" -not -path "./.git/*" -delete
+          godot --headless --path . --import
 
       - name: Export Windows Desktop
         if: ${{ inputs.target_platform == 'Windows' || inputs.target_platform == 'Both' || github.event_name == 'push' }}
