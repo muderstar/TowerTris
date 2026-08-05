@@ -23,6 +23,9 @@ class_name SettingArea
 @export var softdrop_slider: HSlider
 @export var softdrop_value_label: Label
 
+# 皮肤选择
+@export var skin_option: OptionButton
+
 # 按钮
 @export var save_button: Button
 @export var reset_button: Button
@@ -80,6 +83,9 @@ func _ready():
 	# 更新UI
 	_update_ui()
 	
+	# 填充皮肤列表
+	_populate_skin_option()
+	
 	# 设置滑块样式
 	_setup_slider_styles()
 
@@ -130,6 +136,10 @@ func _connect_signals():
 		reset_button.pressed.connect(_on_reset_pressed)
 	if back_button:
 		back_button.pressed.connect(_on_back_pressed)
+	
+	# 皮肤选择
+	if skin_option:
+		skin_option.item_selected.connect(_on_skin_selected)
 
 ## 设置滑块样式
 func _setup_slider_styles():
@@ -164,6 +174,35 @@ func _update_ui():
 		softdrop_slider.value = current_settings.get("softdrop_delay", 0.1) * 100
 	if softdrop_value_label:
 		softdrop_value_label.text = "%.3fs" % current_settings.get("softdrop_delay", 0.1)
+	
+	# 更新皮肤选择
+	_update_skin_selection()
+
+## 填充皮肤下拉列表
+func _populate_skin_option():
+	if not skin_option:
+		return
+	skin_option.clear()
+	var skins := SkinManager.get_skin_list()
+	for skin in skins:
+		skin_option.add_item(skin["name"], skin_option.get_item_count())
+		skin_option.set_item_metadata(skin_option.get_item_count() - 1, skin["id"])
+	_update_skin_selection()
+
+## 将当前设置中的皮肤反映到下拉框
+func _update_skin_selection():
+	if not skin_option or skin_option.item_count == 0:
+		return
+	var current_skin: String = current_settings.get("skin", "classic")
+	for i in range(skin_option.item_count):
+		if skin_option.get_item_metadata(i) == current_skin:
+			skin_option.select(i)
+			break
+
+## 皮肤下拉选择回调
+func _on_skin_selected(index: int):
+	if skin_option:
+		current_settings["skin"] = skin_option.get_item_metadata(index)
 
 ## 更新单个键位按钮
 func _update_key_button(button: Button, action: String):

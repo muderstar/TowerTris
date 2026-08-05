@@ -21,6 +21,7 @@ GlobalData="*res://Scripts/auto_load/global_data.gd"
 InputInitializer="*res://Scripts/auto_load/input_initializer.gd"
 RandomManager="*res://Scripts/auto_load/random_manager.gd"
 UiScaler="*res://Scripts/auto_load/ui_scaler.gd"
+SkinManager="*res://Scripts/skin/skin_manager.gd"
 
 [input]
 

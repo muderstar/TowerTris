@@ -104,6 +104,7 @@ var show_grid_lines: bool = true         # 是否显示网格线
 # Hold方块数据
 var hold_piece_data: Array = []          # 暂存的方块矩阵
 var hold_piece_color: Color = Color.WHITE  # 暂存的方块颜色
+var hold_piece_type: String = ""          # 暂存的方块类型
 
 # Next方块数据
 var next_pieces_data: Array = []         # Next方块数据列表 [{shape: Array, color: Color}]
@@ -137,6 +138,10 @@ var drop_visible_time: float = 1                    # 方块落下后渐变透�
 var _is_visible_mode: bool = true                   # true=正在显示方块, false=方块隐藏
 var _invisible_timer: Timer = null                  # 隐藏模式计时器
 
+# 皮肤状态
+var active_skin: Skin = null
+var skin_textures_enabled: bool = false
+
 # 每个格子锁定的时间戳（用于drop_visible_time渐隐），0表示未锁定
 var _cell_lock_times: Array = []                    # 与board_data同维度，存储Time.get_ticks_msec()
 
@@ -144,6 +149,7 @@ func _ready():
 	_get_find_controller()
 	_init_board_data()
 	_update_board_position()
+	_refresh_skin()
 	
 	# 连接窗口大小变化信号
 	get_tree().root.size_changed.connect(_on_window_resized)
@@ -440,9 +446,12 @@ func _draw_shadow():
 				
 				# 绘制影子格子
 				var cell_rect = Rect2(cell_to_world(board_x, board_y), Vector2(cell_size, cell_size))
-				draw_rect(cell_rect, shadow_color, true)
-				# 绘制影子边框
-				draw_rect(cell_rect, shadow_border_color, false, 1.0)
+				if skin_textures_enabled and active_skin and active_skin.ghost_texture:
+					draw_texture_rect_region(active_skin.ghost_texture, cell_rect, active_skin.get_ghost_region(), _get_shadow_color())
+				else:
+					draw_rect(cell_rect, shadow_color, true)
+					# 绘制影子边框
+					draw_rect(cell_rect, shadow_border_color, false, 1.0)
 
 # ========== 网格绘制系统 ==========
 
@@ -466,6 +475,43 @@ func _draw_grid_lines():
 		var end_pos = Vector2(offset_x + width, offset_y + y * cell_size)
 		draw_line(start_pos, end_pos, grid_line_color, grid_line_width)
 
+## 刷新当前皮肤（从SkinManager读取）
+func _refresh_skin():
+	active_skin = null
+	skin_textures_enabled = false
+	if not has_node("/root/SkinManager"):
+		return
+	active_skin = SkinManager.resolve_active_skin()
+	skin_textures_enabled = active_skin != null and active_skin.has_textures()
+
+## 通过颜色反查方块类型（用于选择纹理区域）
+func _get_piece_type_for_color(color: Color) -> String:
+	if not tetris_controller or not tetris_controller.bag_controller:
+		return ""
+	var bag = tetris_controller.bag_controller
+	for piece_type in bag.piece_types:
+		if color == bag.get_piece_color(piece_type):
+			return piece_type
+	return ""
+
+## 尝试以纹理绘制格子；返回true表示已使用纹理绘制
+func _try_draw_texture_cell(color: Variant, cell_rect: Rect2, alpha: float = 1.0) -> bool:
+	if not skin_textures_enabled or active_skin == null:
+		return false
+	if color == null or typeof(color) != TYPE_COLOR:
+		return false
+	var cell_color := color as Color
+	if _is_garbage_color(cell_color):
+		return false
+	var piece_type := _get_piece_type_for_color(cell_color)
+	if piece_type.is_empty():
+		return false
+	var region := active_skin.get_cell_region(piece_type)
+	if region.size == Vector2.ZERO:
+		return false
+	draw_texture_rect_region(active_skin.minos_texture, cell_rect, region, Color(1, 1, 1, alpha))
+	return true
+
 ## 绘制所有格子（含可见区域上方的出块区域）
 func _draw_cells():
 	# 优先判断：不处于隐形模式 → 全部正常绘制
@@ -476,6 +522,8 @@ func _draw_cells():
 				if cell_color == null:
 					continue
 				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
+				if _try_draw_texture_cell(cell_color, cell_rect):
+					continue
 				draw_rect(cell_rect, cell_color as Color, true)
 				draw_rect(cell_rect, grid_line_color, false, 1.0)
 		return
@@ -492,6 +540,8 @@ func _draw_cells():
 			# 处于显示阶段 → 所有方块正常绘制
 			if _is_visible_mode:
 				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
+				if _try_draw_texture_cell(cell_color, cell_rect):
+					continue
 				draw_rect(cell_rect, cell_color as Color, true)
 				draw_rect(cell_rect, grid_line_color, false, 1.0)
 				continue
@@ -499,6 +549,8 @@ func _draw_cells():
 			# 隐藏阶段：手上控制的方块始终显示
 			if _is_occupied_by_current_piece(x, y):
 				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
+				if _try_draw_texture_cell(cell_color, cell_rect):
+					continue
 				draw_rect(cell_rect, cell_color as Color, true)
 				draw_rect(cell_rect, grid_line_color, false, 1.0)
 				continue
@@ -517,9 +569,11 @@ func _draw_cells():
 				alpha = clamp(alpha, 0.0, 1.0)
 				if alpha <= 0.0:
 					continue  # 完全消失
+				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
+				if _try_draw_texture_cell(cell_color, cell_rect, alpha):
+					continue
 				var draw_color: Color = cell_color as Color
 				draw_color.a = alpha
-				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
 				draw_rect(cell_rect, draw_color, true)
 				draw_rect(cell_rect, grid_line_color, false, 1.0)
 			else:
@@ -791,15 +845,17 @@ func _on_big_attack_warning_ended():
 # ========== Hold方块显示系统 ==========
 
 ## 设置Hold显示的方块
-func set_hold_piece(piece: Array, color: Color):
+func set_hold_piece(piece: Array, color: Color, piece_type: String = ""):
 	hold_piece_data = piece
 	hold_piece_color = color
+	hold_piece_type = piece_type
 	queue_redraw()
 
 ## 清除Hold显示
 func clear_hold_piece():
 	hold_piece_data = []
 	hold_piece_color = Color.WHITE
+	hold_piece_type = ""
 	queue_redraw()
 
 ## 计算Hold框的位置（基于当前cell_size）
@@ -845,7 +901,7 @@ func _draw_hold_display():
 		var draw_area_height = hold_height - padding_y * 2
 		
 		_draw_piece_in_area(hold_piece_data, hold_piece_color, 
-			draw_area_x, draw_area_y, draw_area_width, draw_area_height)
+			draw_area_x, draw_area_y, draw_area_width, draw_area_height, hold_piece_type)
 
 # ========== Next方块显示系统 ==========
 
@@ -881,6 +937,7 @@ func _draw_next_display():
 		var piece_data = next_pieces_data[i]
 		var shape = piece_data["shape"]
 		var color = piece_data["color"]
+		var piece_type: String = piece_data.get("type", "")
 		
 		# 计算Next框的位置
 		var next_pos = _get_next_position(i)
@@ -915,7 +972,7 @@ func _draw_next_display():
 			var draw_area_height = next_height - padding_y * 2
 			
 			_draw_piece_in_area(shape, color, 
-				draw_area_x, draw_area_y, draw_area_width, draw_area_height)
+				draw_area_x, draw_area_y, draw_area_width, draw_area_height, piece_type)
 
 ## 查找版面中最高（y最小）的非空方块（排除正在控制的方块）
 func _get_highest_block_y() -> int:
@@ -1001,7 +1058,7 @@ func _draw_death_overlay():
 
 ## 在指定区域绘制方块（自动缩放）
 func _draw_piece_in_area(piece: Array, color: Color, area_x: float, area_y: float, 
-	area_width: float, area_height: float):
+	area_width: float, area_height: float, piece_type: String = ""):
 	
 	# 计算方块的实际尺寸
 	var piece_width = piece[0].size()
@@ -1028,6 +1085,11 @@ func _draw_piece_in_area(piece: Array, color: Color, area_x: float, area_y: floa
 					draw_cell_size,
 					draw_cell_size
 				)
+				if skin_textures_enabled and active_skin and piece_type != "":
+					var region := active_skin.get_cell_region(piece_type)
+					if region.size != Vector2.ZERO:
+						draw_texture_rect_region(active_skin.minos_texture, rect, region)
+						continue
 				draw_rect(rect, color, true)
 				# 添加边框
 				draw_rect(rect, Color.WHITE, false, 1.0)
