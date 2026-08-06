@@ -440,11 +440,15 @@ func _build_game_rules_command(game_controller) -> String:
 	parts.append(str(int(w_wasted_t)))
 	parts.append(str(int(w_move_time)))
 	# 踢墙表：先发对数，再发 [dx,dy,dx,dy,...]
+	# 注意：游戏 y 向下为正、ColdClear y 向上为正，发送时把 dy 取反，
+	# 使 CC 端踢墙位移方向与游戏完全一致；否则落地后旋转等“多候选可行”
+	# 的板面上，两端穷举踢墙的候选优先级相反，偶发导致 CC 预想落点与
+	# 游戏实际落块错位（尤其 I 方块瞬降后旋转）。
 	parts.append(str(int(kick_table.size())))
 	for kick in kick_table:
 		if kick is Array and kick.size() >= 2:
 			parts.append(str(int(kick[0])))
-			parts.append(str(int(kick[1])))
+			parts.append(str(int(-kick[1])))
 	for v in combo_damage: parts.append(str(int(v)))
 	# 连击计算方式：0=旧连击表，1=新公式（默认）
 	parts.append(str(int(combo_formula)))
@@ -513,10 +517,18 @@ func _on_move_ready(request_id: int, reply: String) -> void:
 		var parts: PackedStringArray = reply.split(" ")
 		var hold: bool = parts.size() > 1 and parts[1] == "1"
 		var n: int = int(parts[2]) if parts.size() > 2 and parts[2].is_valid_int() else 0
+		# 解析 CC 期望落点 cells 坐标（worker 以 " E <ex0> <ey0> ... <ex3> <ey3>" 附带，位于 movements 之前）
+		var expected_cells: Array = []
+		var mv_start: int = 3
+		if parts.size() > 3 and parts[3] == "E":
+			for e in range(4):
+				if 4 + e * 2 + 1 < parts.size():
+					expected_cells.append([int(parts[4 + e * 2]), int(parts[5 + e * 2])])
+			mv_start = 12
 		var movements: Array = []
 		for i in range(n):
-			if 3 + i < parts.size():
-				movements.append(_move_to_action(parts[3 + i]))
+			if mv_start + i < parts.size():
+				movements.append(_move_to_action(parts[mv_start + i]))
 		_plan = {"ok": true, "hold": hold, "movements": movements}
 		_plan_index = 0
 		_plan_hold_done = false
@@ -529,6 +541,7 @@ func _on_move_ready(request_id: int, reply: String) -> void:
 			" | 当前方块=", _last_current_piece,
 			" | 暂存(bot持有)=", held_desc,
 			" | hold=", hold,
+			" | 期望落点(cells)=", expected_cells,
 			" | 路径(", movements.size(), "步)=", movements,
 			" | 剩余待执行=", remaining_movements()
 		)

@@ -735,7 +735,7 @@ func _check_and_clear_lines() -> int:
 				max_btb = btb
 			
 			# 检测是否有Spin
-			var spin_text = clear_line_controller.current_spin_text
+			var spin_text = clear_line_controller.get_current_spin_text()
 			if not spin_text.is_empty():
 				total_spins += 1
 			

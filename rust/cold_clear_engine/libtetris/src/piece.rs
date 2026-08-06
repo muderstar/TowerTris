@@ -334,17 +334,19 @@ impl PieceState {
     /// as the connection directions, in no particular order.
     #[inline(always)]
     pub fn cells(&self) -> [(i32, i32); 4] {
-        // The game rotates the I piece's 4x4 bounding matrix about the matrix centre (not the
-        // piece centre), which makes the I's CW (East) and 180 (South) rotations land one column
-        // to the right of ColdClear's standard SRS cells. Provide explicit cells so the bot's
-        // rotation matches the game exactly (fixes bot I-spin misplacement). Derived from the
-        // game's matrix rotation for a spawn at (x=4, y=spawn_y).
+        // I cells 必须与游戏端（tetris_controller.gd 的 4x4 矩阵绕中心旋转 + BlockData.json 的
+        // I 形状）逐格一致。经 Python 模拟验证，游戏矩阵各状态 cells（相对左上角）为
+        //   N: (0..3, 1)   E: (2, 0..3)   S: (0..3, 2)   W: (1, 0..3)
+        // 换算到 CC 锚点（= 游戏左上角 + (1,1)，且 CC y 向上为正、游戏 y 向下为正）后应为：
+        //   N: cy=0       S: cy=-1       E: cy=1,0,-1,-2     W: cy=1,0,-1,-2
+        // 注意：旧实现把 E/S/W 的 cy 写反，导致 CC 对 I 旋转后的碰撞/落点判定与游戏差 1 行，
+        // 表现为 I 方块“落地后旋转踢墙”错位（CC 预想落点与游戏实际落块不一致）。
         if self.0 == Piece::I {
             return match self.1 {
                 RotationState::North => [(-1, 0), (0, 0), (1, 0), (2, 0)],
-                RotationState::South => [(-1, 1), (0, 1), (1, 1), (2, 1)],
-                RotationState::East => [(1, -1), (1, 0), (1, 1), (1, 2)],
-                RotationState::West => [(0, -1), (0, 0), (0, 1), (0, 2)],
+                RotationState::South => [(-1, -1), (0, -1), (1, -1), (2, -1)],
+                RotationState::East => [(1, 1), (1, 0), (1, -1), (1, -2)],
+                RotationState::West => [(0, 1), (0, 0), (0, -1), (0, -2)],
             };
         }
         macro_rules! gen_cells {

@@ -1062,15 +1062,6 @@ func _draw_text_with_outline(text_position: Vector2, text: String, color: Color,
 	# 绘制主文本
 	draw_string(font, text_position, text, alignment, -1, font_size_int, color)
 
-## 绘制右对齐的文本（文本最右侧对齐 anchor_position，向左侧延展）
-func _draw_text_right_aligned(anchor_position: Vector2, text: String, color: Color, outline_color: Color, font_size: float):
-	var font = ThemeDB.fallback_font
-	var font_size_int = max(1, int(font_size))
-	# 计算文本宽度，手动将绘制位置左移
-	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_int)
-	var draw_pos: Vector2 = Vector2(anchor_position.x - text_size.x, anchor_position.y)
-	_draw_text_with_outline(draw_pos, text, color, outline_color, font_size, HORIZONTAL_ALIGNMENT_LEFT)
-
 func _draw():
 	# 1. 绘制背景
 	_draw_background()
@@ -1099,10 +1090,7 @@ func _draw():
 	# 9. 绘制高度显示
 	_draw_height_display()
 	
-	# 10. 绘制消行文本
-	_draw_clear_text()
-	
-	# 11. 绘制网格线
+	# 10. 绘制网格线
 	_draw_grid_lines()
 	
 	# 12. 绘制版面左右边缘白线（最上层，确保不被网格线或格子描边覆盖）
@@ -1110,67 +1098,6 @@ func _draw():
 	
 	# 13. 游戏结束暗幕（最上层）
 	_draw_death_overlay()
-
-## 绘制消行文本和Spin文本
-func _draw_clear_text():
-	if not clear_line_controller:
-		clear_line_controller = get_node_or_null("../TetrisClearLine")
-		if not clear_line_controller:
-			return
-	
-	# 获取当前方块颜色（用于Spin文本）
-	var spin_color = Color.YELLOW
-	if clear_line_controller:
-		spin_color = clear_line_controller.get_spin_trigger_color()
-	
-	# 绘制BTB文本
-	var btb_text = clear_line_controller.current_btb_text
-	if not btb_text.is_empty():
-		var btb_position = clear_line_controller.btb_text_position
-		var font_size = cell_size * 1.0
-		_draw_text_right_aligned(btb_position, btb_text, clear_line_controller.btb_text_color, 
-			clear_line_controller.btb_text_outline_color, font_size)
-	
-	# 绘制PC文本（在BTB下方）
-	var pc_text = clear_line_controller.current_pc_text
-	if not pc_text.is_empty():
-		var pc_position = clear_line_controller.pc_text_position
-		var font_size = cell_size * 1.2
-		_draw_text_right_aligned(pc_position, pc_text, clear_line_controller.pc_text_color, 
-			clear_line_controller.pc_text_outline_color, font_size)
-	
-	# 绘制伤害文本（在BTB/PC下方）
-	var damage_text = clear_line_controller.current_damage_text
-	if not damage_text.is_empty():
-		var damage_position = clear_line_controller.damage_text_position
-		var font_size = cell_size * 0.9
-		_draw_text_right_aligned(damage_position, damage_text, clear_line_controller.damage_text_color, 
-			clear_line_controller.damage_text_outline_color, font_size)
-	
-	# 绘制Spin文本
-	var spin_text = clear_line_controller.current_spin_text
-	if not spin_text.is_empty():
-		var spin_position = clear_line_controller.spin_text_position
-		var font_size = cell_size * 0.8
-		_draw_text_right_aligned(spin_position, spin_text, spin_color, 
-			clear_line_controller.spin_text_outline_color, font_size)
-	
-	# 绘制消行文本
-	if clear_line_controller.is_text_displaying():
-		var text = clear_line_controller.current_clear_text
-		var text_position = clear_line_controller.clear_text_position
-		
-		var font_size = cell_size * 1.0
-		_draw_text_right_aligned(text_position, text, clear_line_controller.clear_text_color, 
-			clear_line_controller.clear_text_outline_color, font_size)
-	
-	# 绘制连击文本
-	var combo_text = clear_line_controller.current_combo_text
-	if not combo_text.is_empty():
-		var combo_position = clear_line_controller.combo_text_position
-		var font_size = cell_size * 0.8
-		_draw_text_right_aligned(combo_position, combo_text, clear_line_controller.combo_text_color, 
-			clear_line_controller.combo_text_outline_color, font_size)
 
 ## 获取消行控制器的引用
 func set_clear_line_controller(controller: TetrisClearLine):

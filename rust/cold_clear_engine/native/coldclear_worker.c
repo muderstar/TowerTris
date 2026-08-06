@@ -698,7 +698,11 @@ int main(int argc, char **argv) {
 
 				unsigned int n = mv.movement_count;
 				if (n > 32) n = 32;
-				printf("OK %d %u", mv.hold ? 1 : 0, n);
+				/* 附带 CC 期望落点 cells 坐标（调试用）：OK <hold> <n> E <ex0> <ey0> ... <ex3> <ey3> <mv...> */
+				printf("OK %d %u E", mv.hold ? 1 : 0, n);
+				for (int e = 0; e < 4; e++) {
+					printf(" %d %d", (int)mv.expected_x[e], (int)mv.expected_y[e]);
+				}
 				for (unsigned int i = 0; i < n; i++) {
 					char c = '?';
 					switch (mv.movements[i]) {

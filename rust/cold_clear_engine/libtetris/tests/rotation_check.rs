@@ -72,7 +72,7 @@ fn i_piece_absolute_placements_match_game() {
     east.cw(&board);
     assert_eq!(
         sorted(east.cells().to_vec()),
-        sorted(vec![(5, 10), (5, 11), (5, 12), (5, 13)]),
+        sorted(vec![(5, 9), (5, 10), (5, 11), (5, 12)]),
         "I East(CW) does not match game"
     );
 
@@ -81,7 +81,7 @@ fn i_piece_absolute_placements_match_game() {
     south.cw(&board);
     assert_eq!(
         sorted(south.cells().to_vec()),
-        sorted(vec![(3, 12), (4, 12), (5, 12), (6, 12)]),
+        sorted(vec![(3, 10), (4, 10), (5, 10), (6, 10)]),
         "I South(CW+CW) does not match game"
     );
 
@@ -89,7 +89,7 @@ fn i_piece_absolute_placements_match_game() {
     west.ccw(&board);
     assert_eq!(
         sorted(west.cells().to_vec()),
-        sorted(vec![(4, 10), (4, 11), (4, 12), (4, 13)]),
+        sorted(vec![(4, 9), (4, 10), (4, 11), (4, 12)]),
         "I West(CCW) does not match game"
     );
 
