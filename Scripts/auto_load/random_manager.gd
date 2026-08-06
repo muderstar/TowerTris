@@ -40,7 +40,7 @@ func initialize(seed_value: int):
 	_create_sub_rng(seed_value, "MISC")
 	
 	_is_initialized = true
-	print("随机数管理器已初始化，主种子: ", seed_value)
+	# 已注释（调试噪音）：print("随机数管理器已初始化，主种子: ", seed_value)
 
 
 ## 使用默认种子初始化（基于时间）

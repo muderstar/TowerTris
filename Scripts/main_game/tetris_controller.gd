@@ -107,6 +107,38 @@ var max_btb: int = 0    # 最大BTB数
 var total_lines_cleared: int = 0  # 总消行数
 var total_spins: int = 0  # 总Spin次数
 
+# ========== Bot 参数（控制文件见下方注释） ==========
+# ---------------------------------------------------------------------------
+# 【bot 参数的来源/控制文件】
+#  1) bot_mode 由 tower_controller.gd 控制：关卡配置里带 "BotMode":true 时，
+#     tower_controller._extra_data_deal() 会把 tetris_controller.bot_mode 置 true。
+#     "BotMode" 键来自 buff_chose_area.gd 的 tower_init_data（关卡 buff 配置）。
+#  2) 其余3个 @export 参数（bot_target_pps / bot_native_action_interval /
+#     bot_debug_log）直接在 tetris_controller.gd 的 Inspector 里调整。
+# ---------------------------------------------------------------------------
+var bot_mode: bool = false
+# 目标方块/秒（PPS）。控制 bot 落块的节奏上限：
+#   每块最小间隔 = 1/bot_target_pps（_get_bot_piece_interval）
+#   每步动作间隔 = 1/(bot_target_pps*4)（_get_bot_action_interval）
+# 在 tetris_controller.gd 的 Inspector 中调整（@export）。
+@export var bot_target_pps: float = 10
+
+# bot 每步“原生动作”的最小间隔（秒）。越小执行越快，但过小可能因物理/程序竞争出问题。
+# 在 tetris_controller.gd 的 Inspector 中调整（@export）。
+@export var bot_native_action_interval: float = 0.005
+
+# 是否打印 bot 调试日志（例如 ColdClear 决策路径、启用提示）。
+# 在 tetris_controller.gd 的 Inspector 中调整（@export）。
+@export var bot_debug_log: bool = true
+
+# --- 以下为 bot 内部状态（运行期维护，勿手改） ---
+var _coldclear_bridge: ColdClearBridge = null
+var _bot_piece_serial: int = 0
+var _bot_tracking_piece_serial: int = -1
+var _bot_tracking_board_version: int = 0
+var _bot_next_action_time: float = 0.0
+var _bot_piece_cooldown: float = 0.0
+
 signal game_started()
 signal game_ended()
 
@@ -118,6 +150,11 @@ var kick_table: Dictionary = {
 		[0,-1], [-1,-1], [-2,-1], [1,2], [2,0], [0,-2], [-1,-2], [-2,-2], [2,1], [2,2]
 	]
 }
+
+# 返回游戏 asc 踢墙表（供 ColdClear bridge 传入 bot，使 bot 的踢墙与游戏一致）
+func get_kick_table() -> Array:
+	var all: Array = kick_table.get("all", [])
+	return all
 
 func _ready():
 	_game_started_emitted = false
@@ -139,6 +176,11 @@ func _ready():
 	
 	# 初始化统计系统
 	_init_stats()
+
+	if bot_mode:
+		_ensure_coldclear_bridge()
+		if bot_debug_log:
+			pass  # 已注释：print("[ColdClearBridge] 使用原生ColdClear决策（rust cold_clear.dll）")
 	
 	# 生成第一个方块
 	spawn_new_piece()
@@ -261,7 +303,7 @@ func _initialize_random():
 		# 使用当前时间作为种子
 		RandomManager.initialize_default()
 	
-	print("随机数管理器已初始化，种子: ", RandomManager.get_current_seed())
+	# 已注释（调试噪音）：print("随机数管理器已初始化，种子: ", RandomManager.get_current_seed())
 
 func _load_saved_seed() -> int:
 	# 可以从设置文件中读取保存的种子
@@ -443,6 +485,10 @@ func spawn_new_piece():
 	current_piece_type = piece_data["type"]
 	current_original_shape = bag_controller.get_original_shape(current_piece_type)
 	current_position = Vector2i(spawn_x, spawn_y)
+	_bot_piece_serial += 1
+	# 调试：记录方块 spawn 位置（矩阵左上角），用于对照 CC 决策与执行
+	if bot_debug_log:
+		print("[BotSpawn] piece=", current_piece_type, " spawn=(", current_position.x, ",", current_position.y, ")")
 	
 	_draw_current_piece()
 	
@@ -484,6 +530,7 @@ func spawn_new_piece_keep_hold():
 	current_piece_type = piece_data["type"]
 	current_original_shape = bag_controller.get_original_shape(current_piece_type)
 	current_position = Vector2i(spawn_x, spawn_y)
+	_bot_piece_serial += 1
 	
 	# 绘制方块到版面
 	_draw_current_piece()
@@ -958,18 +1005,37 @@ func move_right():
 func soft_drop():
 	_try_move(0, 1)
 
+## 软降到底（不锁定）：bot 路径中的 "soft_drop" 动作（ColdClear SonicDrop）使用本方法，
+## 对应将当前方块一直下落到触底位置，但不像 hard_drop 那样立即锁定，等待后续 hard_drop 锁定。
+func soft_drop_to_bottom():
+	while _try_move(0, 1):
+		pass
+
 ## 硬降（直接落底）
 func hard_drop():
 	# 一直向下移动直到碰撞
 	while _try_move(0, 1):
 		pass  # 继续移动
 	
+	# 调试：打印锁定前的最终位置（对比 CC 决策期望落点）
+	if bot_debug_log:
+		print("[BotLock] piece=", current_piece_type, " final=(", current_position.x, ",", current_position.y, ")")
+	
 	# 触底后立即锁定
 	_force_lock_piece()
 
 # ========== 更新循环 ==========
 
-func _process(_delta):
+func _process(delta):
+	if bot_mode:
+		_process_bot_control(delta)
+		# 等原生 ColdClear 决策期间暂停当前方块下落：
+		# bot 的移动序列（含旋转踢墙）是基于“当前方块仍在 spawn 位”规划的相对移动，
+		# 若决策等待期间方块持续下落，执行计划时旋转踢墙会在错误高度触发，
+		# 导致旋转/落点错乱（表现为“移动错乱 / missdrop”）。
+		if _coldclear_bridge == null or not _coldclear_bridge.is_waiting_decision():
+			gravity_drop()
+		return
 	
 	# if not replay_input_override:  # 回放系统已禁用
 	change_key_press_to_var()
@@ -978,6 +1044,118 @@ func _process(_delta):
 	_process_input()
 	check_for_var_single_press()
 	gravity_drop()
+
+func _ensure_coldclear_bridge() -> void:
+	if _coldclear_bridge != null:
+		return
+	_coldclear_bridge = ColdClearBridge.new()
+	add_child(_coldclear_bridge)
+
+func _process_bot_control(delta: float) -> void:
+	_ensure_coldclear_bridge()
+	if _coldclear_bridge == null:
+		return
+	if current_piece.is_empty():
+		return
+
+	if _bot_piece_cooldown > 0.0:
+		_bot_piece_cooldown = max(0.0, _bot_piece_cooldown - delta)
+
+	if _bot_next_action_time > 0.0:
+		_bot_next_action_time = max(0.0, _bot_next_action_time - delta)
+		return
+
+	# 新块开始：请求新的原生 ColdClear 决策
+	if _bot_tracking_piece_serial != _bot_piece_serial:
+		_bot_tracking_piece_serial = _bot_piece_serial
+		if _coldclear_bridge.using_native_cc():
+			_coldclear_bridge.request_plan(self)
+
+	# 垃圾行抬升期间版面已变化（force_raise_rows 已递增 board_version）。
+	# 注意：垃圾上涨是整版（含当前方块）同步上移（force_raise_rows 会把当前方块一并上移），
+	# 因此当前方块相对堆叠的落点与形状不变，其正在执行的旧计划（相对移动序列）依然有效。
+	# 若在此打断并重新规划，新计划按“方块在 spawn 位”生成，而方块实际已移动/已按旧计划走了
+	# 若干步，会导致当前块 missdrop。所以仅当本块完全没有计划（如首次请求失败）时，才基于
+	# 新版面重试；否则继续执行旧计划，待本块锁定后由“新块开始”逻辑按新版面请求。
+	if garbage_line_controller != null and _bot_tracking_board_version != garbage_line_controller.board_version:
+		_bot_tracking_board_version = garbage_line_controller.board_version
+		# 避免请求堆积：若已有在途决策（正在等待），交给其完成后自然对账；否则才重新请求。
+		if _coldclear_bridge.using_native_cc() and not _coldclear_bridge.is_waiting_decision():
+			if _coldclear_bridge.is_plan_empty():
+				_coldclear_bridge.request_plan(self)
+
+	# 等待原生 ColdClear 异步决策期间，暂停动作
+	if _coldclear_bridge.using_native_cc() and _coldclear_bridge.is_waiting_decision():
+		return
+
+	# 无可用原生计划（原生不可用/决策失败/计划已消费）时，直接硬降锁定当前块
+	if not _coldclear_bridge.using_native_cc() or not _coldclear_bridge.has_plan():
+		if _bot_piece_cooldown > 0.0:
+			_bot_next_action_time = min(_bot_piece_cooldown, 0.05)
+			return
+		hard_drop()
+		_bot_piece_cooldown = _get_bot_piece_interval()
+		return
+
+	# 执行计划中的下一个动作
+	var decided_action: BotAction = _coldclear_bridge.next_plan_action()
+	if decided_action == null or String(decided_action.move).is_empty():
+		decided_action = BotAction.new("hard_drop", ["hard_drop"], "hard_drop")
+
+	# PPS限制核心：未到每块最小间隔前，阻止hard_drop锁定新块。
+	if _bot_piece_cooldown > 0.0 and decided_action.move == "hard_drop":
+		_bot_next_action_time = min(_bot_piece_cooldown, 0.05)
+		return
+
+	_apply_bot_action(decided_action)
+
+	if decided_action.move == "hard_drop":
+		_bot_piece_cooldown = _get_bot_piece_interval()
+
+	var action_interval: float = _get_bot_action_interval()
+	if action_interval > 0.0:
+		_bot_next_action_time = min(action_interval, bot_native_action_interval) if action_interval > 0.0 else bot_native_action_interval
+
+## 把 CC 决策出的动作（BotAction）映射到游戏内直接调用
+func _apply_bot_action(action: BotAction) -> void:
+	if action == null:
+		return
+	# 调试：打印每步动作执行前的方块位置，用于对照 CC 决策 movements
+	if bot_debug_log:
+		print("[BotStep] ", String(action.move), " before=(", current_position.x, ",", current_position.y, ")")
+	match String(action.move):
+		"left":
+			move_left()
+		"right":
+			move_right()
+		"rotate_left":
+			rotate_left()
+		"rotate_right":
+			rotate_right()
+		"rotate_180":
+			rotate_180()
+		"soft_drop":
+			# ColdClear 的 'D'(CC_DROP) 在引擎里是 PieceMovement::SonicDrop（直接下落到触底），
+			# 本游戏软降默认也是直接触底（softdrop_delay==0 → 一路 drop 到底），所以用
+			# soft_drop_to_bottom() 完全对应。CC 的 'D' 通常出现在路径末尾（或由最后 hard_drop
+			# 兜底触底），因此这样映射不会造成误放置；若计划中段出现 'D'，会先触底再继续横移，
+			# 此时需保证已落在堆叠上（CC 搜索不会生成触底后还需横移的路径）。
+			soft_drop_to_bottom()
+		"hold":
+			hold_current_piece()
+		"hard_drop":
+			hard_drop()
+
+func _get_bot_action_interval() -> float:
+	if bot_target_pps <= 0.0:
+		return 0.0
+	# 目标为每秒可完成的方块数，简单换算为每步动作节奏上限
+	return 1.0 / max(bot_target_pps * 4.0, 0.001)
+
+func _get_bot_piece_interval() -> float:
+	if bot_target_pps <= 0.0:
+		return 0.0
+	return 1.0 / max(bot_target_pps, 0.001)
 
 ## 处理键盘输入
 func _process_input():

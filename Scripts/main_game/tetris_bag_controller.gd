@@ -92,7 +92,7 @@ func _load_block_data_from_json() -> void:
 	
 	piece_data = new_piece_data
 	piece_types = new_piece_types
-	print("BlockData.json 已加载，方块类型: ", piece_types)
+	# 已注释（调试噪音）：print("BlockData.json 已加载，方块类型: ", piece_types)
 
 # 信号
 signal piece_spawned(piece_type: String, shape: Array, color: Color)

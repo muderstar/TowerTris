@@ -114,7 +114,7 @@ var _panel: Panel = null
 ## 文件不存在或解析失败时保留代码中的默认配置
 func _load_buff_data_from_json() -> void:
 	if not FileAccess.file_exists(BUFF_DATA_PATH):
-		print("BuffChoseData.json 不存在，使用默认配置: ", BUFF_DATA_PATH)
+		# 已注释（调试噪音）：print("BuffChoseData.json 不存在，使用默认配置: ", BUFF_DATA_PATH)
 		return
 	
 	var file = FileAccess.open(BUFF_DATA_PATH, FileAccess.READ)
@@ -264,7 +264,7 @@ func _discover_toggle_boxes() -> void:
 		_find_toggle_boxes_recursive(root_node, found)
 	if not found.is_empty():
 		toggle_boxes = found
-		print("自动发现 ToggleBox 节点: ", toggle_boxes.size())
+		# 已注释（调试噪音）：print("自动发现 ToggleBox 节点: ", toggle_boxes.size())
 
 func _find_toggle_boxes_recursive(node: Node, found: Array[ToggleBox]) -> void:
 	if node is ToggleBox:

@@ -44,7 +44,8 @@
 		"Invisible_1":"隐形I：开启隐形",
 		"Allspin_1":"全旋I：启用Allspin，当消行类型与行数都与上次完全一致时立刻上涨一行垃圾行",
 		"NoHold_1":"无暂存I：禁用暂存",
-		"Talentless":"无天赋：禁用全部Spin"
+		"Talentless":"无天赋：禁用全部Spin",
+		"BotPlay":"Bot模式：将会开启bot"
 	},
 	"BuffChange":{
 		"Pressure1": {"total_apm_buff_mult": 1.2},
@@ -66,6 +67,7 @@
 		"Invisible_1": {"tetris_invisible": 1},
 		"Allspin_1": {"tetris_allspin": 1},
 		"NoHold_1": {"NoHold": true},
-		"Talentless": {"NoSpin": true}
+		"Talentless": {"NoSpin": true},
+		"BotPlay": {"BotMode": true}
 	}
 }

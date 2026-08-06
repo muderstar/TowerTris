@@ -2,7 +2,7 @@ extends Node2D
 class_name TowerController
 
 static var ATTACK_DATA_PATH : String = "user://Savedatas/attack_setting.json"
-static var FLOOR_HIGHER : Array = [0,50,150,300,450,650,850,1100,1350,1650,2550,3000,3500,4500,5500,7500,9000,12000]
+static var FLOOR_HIGHER : Array = [0,50,150,300,450,650,850,1100,1350,1650,2550,3000,3500,4500,5500,6500,8000,9500,11000]
 
 @export var tetris_controller: TetrisController
 @export var garbage_line_controller: TetrisGarbageLineController
@@ -140,6 +140,45 @@ func _extra_data_deal():
 	if extra_data_dict.has("tetris_allspin"):
 		clear_line_controller.tetris_allspin = extra_data_dict["tetris_allspin"]
 
+	# bot 评估权重（可由 buff 界面调整，经 bridge 的 S 命令下发到 ColdClear）。
+	# 原则：bridge 导出权重为主，仅当 buff 显式传参对应键时才覆盖 bridge。
+	# 这里把显式传参的键记入 clear_line_controller.bot_weight_override_keys，
+	# get_damage_tables 只返回这些键，bridge 才会覆盖默认权重。
+	clear_line_controller.bot_weight_override_keys = {}
+	var bot_key_to_var := {
+		"bot_eval_mult": "eval_mult",
+		"bot_attack_efficiency_weight": "attack_efficiency_weight",
+		"bot_b2b_clear": "b2b_clear",
+		"bot_height": "height",
+		"bot_clear4": "clear4",
+		"bot_clear1": "clear1",
+		"bot_clear2": "clear2",
+		"bot_clear3": "clear3",
+		"bot_tspin1": "tspin1",
+		"bot_tspin2": "tspin2",
+		"bot_tspin3": "tspin3",
+		"bot_mini_tspin1": "mini_tspin1",
+		"bot_mini_tspin2": "mini_tspin2",
+		"bot_allspin1": "allspin1",
+		"bot_allspin2": "allspin2",
+		"bot_allspin3": "allspin3",
+		"bot_allspin3plus": "allspin3plus",
+		"bot_perfect_clear": "perfect_clear",
+		"bot_combo_garbage": "combo_garbage",
+		"bot_wasted_t": "wasted_t",
+		"bot_move_time": "move_time",
+		"bot_allspin_repeat_penalty": "allspin_repeat_penalty",
+	}
+	for extra_key in bot_key_to_var:
+		if extra_data_dict.has(extra_key):
+			var weight_key: String = bot_key_to_var[extra_key]
+			clear_line_controller.set("bot_" + weight_key, int(extra_data_dict[extra_key]))
+			clear_line_controller.bot_weight_override_keys[weight_key] = true
+
+	# bot 并行搜索线程数（buff 可调，0 = 由 bridge 自动决定）
+	if extra_data_dict.has("bot_threads"):
+		clear_line_controller.bot_threads = int(extra_data_dict["bot_threads"])
+
 	# Talentless（无才能）：为true时跳过整个Spin判定
 	if extra_data_dict.has("NoSpin"):
 		if clear_line_controller:
@@ -152,6 +191,13 @@ func _extra_data_deal():
 			tetris_controller.no_hold = no_hold_value
 		if board_drawer:
 			board_drawer.no_hold = no_hold_value
+	
+	if extra_data_dict.has("BotMode"):
+		tetris_controller.bot_mode = true
+
+## 供 bot 读取当前关卡 buff 调整后的攻击倍率（send_mult_attack）。
+func get_send_mult_attack() -> float:
+	return send_mult_attack
 
 func _set_timer():
 	garbage_sent_timer = Timer.new()
@@ -233,6 +279,13 @@ func _try_sent_garbage():
 			collected_garbage.clear()
 		collected_count = 0
 	else:
+		i = floor(collected_garbage.size() / 2.0)
+		var temp_sent_garbage : Array
+		while i > 0:
+			i -= 1
+			temp_sent_garbage.append(collected_garbage[0])
+			collected_garbage.remove_at(0)
+		_tower_garbage_sent(temp_sent_garbage)
 		collected_count += 1
 
 func _tower_garbage_sent(attack: Array):

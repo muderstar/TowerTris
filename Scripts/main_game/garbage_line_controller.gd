@@ -21,6 +21,10 @@ class_name TetrisGarbageLineController
 # 抵消倍率：每 1 行攻击可抵消 mult_defend 行垃圾
 @export var mult_defend: float = 1.0                 # 抵消倍率（默认 1.0）
 
+## 供 bot 读取当前关卡 buff 调整后的防御倍率（mult_defend）。
+func get_mult_defend() -> float:
+	return mult_defend
+
 # ====== 瞬间/逐行上涨模式 ======
 ## true = 旧逻辑：锁定方块时一次性上涨所有垃圾行
 ## false = 逐行上涨：垃圾行加入依次上涨队列，每 garbage_rise_time_delay 秒上涨一行
@@ -211,6 +215,10 @@ func has_buffered_garbage() -> bool:
 ## ========== 强制上涨系统（核心功能） ==========
 
 ## 强制上涨行数（通用功能，支持自定义行数据生成器）
+## 版面版本号：每次垃圾行成功上涨（force_raise_rows 真正上移了行）时 +1。
+## 用于让 bot 感知“垃圾行抬升期间版面已变化”，从而重新请求决策，避免执行过期计划。
+var board_version: int = 0
+
 func force_raise_rows(row_count: int, row_generator: Callable, skip_piece_handling: bool = false) -> bool:
 	if row_count <= 0:
 		return false
@@ -322,6 +330,22 @@ func force_raise_rows(row_count: int, row_generator: Callable, skip_piece_handli
 	
 	# 请求重绘
 	board_drawer.queue_redraw()
+	
+	# 垃圾行洞口记录随版面上移：整版上移 row_count 行后，已有垃圾行的实际行索引
+	# 减小 row_count（y=0 为顶部），被挤出顶部的记录应删除；底部新增行的洞口由调用方
+	# （_on_rise_timer_timeout / apply_garbage_to_board）另行记录。
+	# 若不同步，逐行上涨时 garbage_rows_data 索引错位，会导致 is_garbage_hole /
+	# _is_hole_position 判定丢失/错乱（洞口“消失”或出现在错误行）。
+	if row_count > 0 and not garbage_rows_data.is_empty():
+		var shifted: Dictionary = {}
+		for row_y in garbage_rows_data:
+			var new_y: int = int(row_y) - row_count
+			if new_y >= 0:
+				shifted[new_y] = garbage_rows_data[row_y]
+		garbage_rows_data = shifted
+	
+	# 版面已因垃圾行上涨而改变：递增版本号，通知 bot 重新决策
+	board_version += 1
 	
 	##print("强制上涨了 ", row_count, " 行")
 	return true
@@ -777,11 +801,8 @@ func _move_enter_to_rise_queue() -> int:
 	for entry in garbage_enter_array:
 		total_available += entry["count"]
 	
-	# 限流
+	# 限流（每次锁定最多新增 garbage_cap 行，保留尚未上涨完的旧行，避免丢失）
 	var total_rows = min(total_available, garbage_cap)
-	
-	# 清空待处理
-	_pending_rise_queue.clear()
 	
 	var remaining = total_rows
 	var enter_index = 0
@@ -839,13 +860,17 @@ func _move_enter_to_rise_queue() -> int:
 	return _pending_rise_queue.size()
 
 ## 启动逐行上涨计时器
+## 仅当计时器未运行时才启动：Godot 的 Timer.start() 在已运行时调用会重置剩余时间，
+## 若上涨队列已有行正在逐行上涨，新垃圾入队（_move_enter_to_rise_queue /
+## add_allspin_garbage）会反复重置计时，导致已排队行的上涨被打断/无限推迟。
 func _start_rise_timer() -> void:
 	if not _rise_timer:
 		return
 	if _pending_rise_queue.is_empty():
 		return
-	_rise_timer.wait_time = garbage_rise_time_delay
-	_rise_timer.start()
+	if _rise_timer.is_stopped():
+		_rise_timer.wait_time = garbage_rise_time_delay
+		_rise_timer.start()
 
 ## 停止逐行上涨计时器
 func _stop_rise_timer() -> void:
@@ -911,13 +936,15 @@ func offset_rise_queue(remaining_damage: int) -> int:
 	
 	return offset_count
 
-## 获取进入队列的大小（总行数，包括缓冲）
+## 获取进入队列的大小（总行数，包括缓冲和逐行上涨队列）
 func get_enter_queue_size() -> int:
 	var total = 0
 	for entry in garbage_enter_array:
 		total += entry["count"]
 	for entry in garbage_buffer:
 		total += entry["count"]
+	# 逐行模式下上涨队列中的行也是待处理垃圾行，必须计入
+	total += _pending_rise_queue.size()
 	return total
 
 ## 获取进入队列的原始数据（只返回正常队列）

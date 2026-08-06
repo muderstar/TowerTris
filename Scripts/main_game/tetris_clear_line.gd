@@ -76,6 +76,14 @@ var spin_damage_table: Dictionary = {
 	}
 }
 
+# All-Spin 伤害表（独立表，默认 [0,4,6,8]：消1权重保持4不变，消2/消3权重降低，可由 buff 界面调整）
+# 下标=消行数 1..3（下标0为0）。allspin_1 规则（tetris_allspin==1）下使用。
+var allspin_damage_table: Dictionary = {
+	1: 4,
+	2: 6,
+	3: 8
+}
+
 # 连击表
 var combo_damage_list: Array = [
 	0,  #无连击
@@ -91,6 +99,11 @@ var combo_damage_list: Array = [
 	4,  # 10连击
 	4   # 11连击及以上
 ]
+
+# 连击计算方式：0=旧连击表（combo_damage_list），1=新公式（默认）：
+#   combo_damage = floor(max(ln(1+1.25*combo), ((is_btb_active?1:0)+attack)*(1+0.25*combo)))
+#   其中 attack = 本次消行的 base+spin（不含BTB加成）
+var combo_formula: int = 1
 
 # Spin伤害加成
 var spin_damage_multiplier: Dictionary = {
@@ -120,7 +133,41 @@ var btb_count: int = 0
 var is_btb_active: bool = false
 var spin0_btb_enabled: bool = false  # Spin0是否触发BTB（由buff控制）
 var tetris_allspin: int = 0          # 0=关闭, 1=启用Allspin
+
+# ---- bot 评估权重（可由 buff 界面调整，经 bridge 的 S 命令下发到 ColdClear）----
+# 维持 BTB 的评估权重（越大 bot 越倾向于维持 back-to-back）
+var bot_b2b_clear: int = 200
+# 放块后的堆叠最高点权重（bot 评估：height × 最高点，负值=压高）
+var bot_height: int = -39
+# 四消（Tetris）的评估权重（越小 bot 越不倾向做四消）
+var bot_clear4: int = 260
+# allspin_1 重复惩罚的评估扣分（负值=降低选取值，可 buff 调整）
+var bot_allspin_repeat_penalty: int = -120
+# 各类型消行/旋转的评估权重（默认=bridge 导出值，可由 buff 传参覆盖，经 bridge 下发）
+var bot_eval_mult: int = 100
+var bot_attack_efficiency_weight: int = 100
+var bot_clear1: int = -163
+var bot_clear2: int = -130
+var bot_clear3: int = -78
+var bot_tspin1: int = 221
+var bot_tspin2: int = 410
+var bot_tspin3: int = 202
+var bot_mini_tspin1: int = -158
+var bot_mini_tspin2: int = -393
+var bot_allspin1: int = 221
+var bot_allspin2: int = 410
+var bot_allspin3: int = 202
+var bot_allspin3plus: int = 202
+var bot_perfect_clear: int = 199
+var bot_combo_garbage: int = 170
+var bot_wasted_t: int = -102
+var bot_move_time: int = -3
+# bot 并行搜索线程数（buff 可调；0 = 由 bridge 自动决定）
+var bot_threads: int = 0
 var no_spin: bool = false            # Talentless：为true时跳过整个Spin判定
+# 记录 buff 显式传参的权重键（仅这些键会被 bridge 采用，覆盖 bridge 默认权重）
+# 由 tower_controller._extra_data_deal 填入；get_damage_tables 只返回这些键的权重。
+var bot_weight_override_keys: Dictionary = {}
 
 # Allspin：记录上次消行类型和行数（用于下一次消行时比对）
 var _last_clear_type: String = ""    # 上次消行类型（如"T-Spin"、"Mini T-Spin"、"I-Spin"、""等）
@@ -415,12 +462,16 @@ func _calculate_damage(clear_count: int, spin_type: String) -> int:
 	else:
 		base_damage = base_damage_table.get(clear_count, 0)
 	
-	# BTB 加成（从第二次连续BTB开始）- 适用于 spin 和 quad
+	# 记录本次消行的攻击值（base+spin，不含BTB加成），供连击公式使用
+	var attack_value: int = base_damage + spin_damage
+	
+	# BTB 加成（从第二次连续BTB开始；btb>=4 时额外+1，即 +2）- 适用于 spin 和 quad
 	if btb_count > 1:
+		var btb_boost: int = 2 if btb_count >= 4 else 1
 		if not spin_type.is_empty():
-			spin_damage += 1
+			spin_damage += btb_boost
 		elif clear_count >= 4:
-			base_damage += 1
+			base_damage += btb_boost
 	
 	if btb_count >= 4 and spin_type.is_empty() and clear_count < 4:
 		surge_break = btb_count
@@ -429,24 +480,32 @@ func _calculate_damage(clear_count: int, spin_type: String) -> int:
 	
 	var combo_damage = 0
 	if combo_count > 0:
-		# 判断消行类型以决定连击加成方式
-		var is_mini: bool = spin_type.find("Mini") != -1
-		var is_quad: bool = clear_count >= 4
-		
-		if not is_mini and is_quad:
-			# 非mini spin且quad：伤害 +combo_count（x）
-			combo_damage = combo_count
-		elif is_mini:
-			# mini spin：伤害 +floor(ln((x²/2)+1))
-			combo_damage = floori(log(combo_count * combo_count / 3.0 + 1.0))
+		if combo_formula == 1:
+			# 新公式（默认）：
+			#   combo_damage = floor(max(ln(1+1.25*combo), ((is_btb_active?1:0)+attack)*(1+0.25*combo)))
+			#   其中 attack = base+spin（不含BTB加成）
+			var b2b_flag: float = 1.0 if is_btb_active else 0.0
+			var combined: float = (b2b_flag + float(attack_value)) * (1.0 + 0.25 * float(combo_count))
+			var log_term: float = log(1.0 + 1.25 * float(combo_count))
+			combo_damage = floori(max(log_term, combined))
 		else:
-			# 其他情况：使用连击表
-			var index = combo_count
-			if index < combo_damage_list.size():
-				combo_damage = combo_damage_list[index]
+			# 旧连击表（备选项）
+			var is_mini: bool = spin_type.find("Mini") != -1
+			var is_quad: bool = clear_count >= 4
+			if not is_mini and is_quad:
+				# 非mini spin且quad：伤害 +combo_count（x）
+				combo_damage = combo_count
+			elif is_mini:
+				# mini spin：伤害 +floor(ln((x²/2)+1))
+				combo_damage = floori(log(combo_count * combo_count / 3.0 + 1.0))
 			else:
-				var extra = (combo_count - combo_damage_list.size()) / 2.0
-				combo_damage = min(5, combo_damage_list[-1] + extra)
+				# 其他情况：使用连击表
+				var index = combo_count
+				if index < combo_damage_list.size():
+					combo_damage = combo_damage_list[index]
+				else:
+					var extra = (combo_count - combo_damage_list.size()) / 2.0
+					combo_damage = min(5, combo_damage_list[-1] + extra)
 	
 	return base_damage + spin_damage + combo_damage + surge_break
 
@@ -461,6 +520,80 @@ func _get_spin_key(spin_type: String) -> String:
 ## 获取当前消行的伤害值
 func get_current_damage() -> int:
 	return current_damage
+
+## 供 bot 读取当前 buff 调整后的并行搜索线程数（0 = 由 bridge 自动决定）。
+func get_bot_threads() -> int:
+	return bot_threads
+
+## 供 bot 读取“实际游戏规则/伤害模型”的伤害表（lt→bot 桥接）。
+## 返回当前生效的基础伤害表、T-Spin 伤害表、连击伤害表、BTB 加成、PC 伤害。
+## 这些表可由 buff 界面（extra_data）调整后读取，bot 据此模拟真实伤害。
+func get_damage_tables() -> Dictionary:
+	var tbl := {}
+	tbl["enabled"] = true
+	# 基础伤害表（按下标=消行数 0..4）
+	var base: Array = []
+	for i in range(5):
+		base.append(base_damage_table.get(i, 0))
+	tbl["base_damage"] = base
+	# T-Spin 伤害表（按下标=消行数 0..3，下标0为0）
+	var tspin: Array = [0, 0, 0, 0]
+	var ts_data: Dictionary = spin_damage_table.get("T-Spin", {})
+	for i in range(1, 4):
+		tspin[i] = ts_data.get(i, 0)
+	tbl["tspin_damage"] = tspin
+	# 连击伤害表（按下标=连击数 0..31）
+	var combo: Array = []
+	for i in range(32):
+		if i < combo_damage_list.size():
+			combo.append(combo_damage_list[i])
+		else:
+			# 超出表长：min(5, list[-1] + (i - size)/2)，与 _calculate_damage 一致
+			var extra: float = (i - combo_damage_list.size()) / 2.0
+			combo.append(min(5, combo_damage_list[-1] + int(extra)))
+	tbl["combo_damage"] = combo
+	# 连击计算方式：0=旧连击表，1=新公式（默认）——同步给 CC 的 combo 处理
+	tbl["combo_formula"] = combo_formula
+	tbl["b2b_bonus"] = 1
+	tbl["pc_damage"] = pc_damage
+	# All-Spin 伤害表（独立表，默认同 T-Spin 值，可由 buff 调整）
+	var allspin: Array = [0, 0, 0, 0]
+	for i in range(1, 4):
+		allspin[i] = allspin_damage_table.get(i, 0)
+	tbl["allspin_damage"] = allspin
+	# allspin_1 规则是否启用（tetris_allspin==1）
+	tbl["allspin_enabled"] = (tetris_allspin == 1)
+	# bot 评估权重：仅返回 buff 显式传参的键（bot_weight_override_keys 由
+	# tower_controller._extra_data_deal 填充）。这样 bridge 默认权重为主，
+	# 只有 buff 真正传了参的键才会覆盖 bridge。
+	var bot_weights := {
+		"eval_mult": bot_eval_mult,
+		"attack_efficiency_weight": bot_attack_efficiency_weight,
+		"b2b_clear": bot_b2b_clear,
+		"height": bot_height,
+		"clear4": bot_clear4,
+		"clear1": bot_clear1,
+		"clear2": bot_clear2,
+		"clear3": bot_clear3,
+		"tspin1": bot_tspin1,
+		"tspin2": bot_tspin2,
+		"tspin3": bot_tspin3,
+		"mini_tspin1": bot_mini_tspin1,
+		"mini_tspin2": bot_mini_tspin2,
+		"allspin1": bot_allspin1,
+		"allspin2": bot_allspin2,
+		"allspin3": bot_allspin3,
+		"allspin3plus": bot_allspin3plus,
+		"perfect_clear": bot_perfect_clear,
+		"combo_garbage": bot_combo_garbage,
+		"wasted_t": bot_wasted_t,
+		"move_time": bot_move_time,
+		"allspin_repeat_penalty": bot_allspin_repeat_penalty,
+	}
+	for key in bot_weights:
+		if bot_weight_override_keys.has(key):
+			tbl[key] = bot_weights[key]
+	return tbl
 
 ## 获取连击文本
 func _get_combo_text() -> String:

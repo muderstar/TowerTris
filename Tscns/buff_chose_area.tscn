@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://b5rhm6pyyfqrs"]
+[gd_scene format=3 uid="uid://b6i2edtol0cux"]
 
 [ext_resource type="Script" uid="uid://ubmnhfgjgm77" path="res://Scripts/buff_chose/buff_chose_area.gd" id="1_7sx2r"]
 [ext_resource type="Script" uid="uid://hc6y5a0155yd" path="res://Scripts/buff_chose/toggle_box.gd" id="2_7sx2r"]
@@ -340,6 +340,28 @@ script = ExtResource("3_7sx2r")
 layout_mode = 2
 script = ExtResource("2_7sx2r")
 box_id = "Talentless"
+box_size = 32
+default_checked = false
+
+[node name="List9" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=1836073464]
+layout_mode = 0
+offset_left = 405.0
+offset_top = 24.0
+offset_right = 511.0
+offset_bottom = 56.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List9" unique_id=469802311]
+layout_mode = 2
+text = "启用bot："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List9" unique_id=1556813599]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="BotPlay" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List9" unique_id=1093273368]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "BotPlay"
 box_size = 32
 default_checked = false
 
