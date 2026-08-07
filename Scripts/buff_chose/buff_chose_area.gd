@@ -20,6 +20,9 @@ class_name BuffChoseArea
 # 中部 buff 列表容器
 @export var buff_list: VBoxContainer
 
+# Buff配置数据文件路径（读取互斥组/显示文本/倍率配置）
+const BUFF_DATA_PATH: String = "res://GameSaveData/BuffChoseData.json"
+
 # 已勾选框对应的 Label 字典（box_id -> Label）
 var _label_by_id: Dictionary = {}
 
@@ -28,32 +31,20 @@ var _summary_label: Label = null
 
 ## 互斥选框组配置：同一组内的选框互斥，选中一个则其他自动取消
 ## 组名 -> [box_id1, box_id2, ...]
-var _mutually_exclusive_groups: Dictionary = {
-	"Pressure": ["Pressure1", "Pressure2", "Pressure3"],
-	"Suddenly_Death": ["SuddenlyDeath_1","SuddenlyDeath_2","SuddenlyDeath_3","SuddenlyDeath_4","SuddenlyDeath_5","SuddenlyDeath_6","SuddenlyDeath_7","SuddenlyDeath_8","SuddenlyDeath_9","SuddenlyDeath_10"],
-}
+var _mutually_exclusive_groups: Dictionary = {}
 
 # box_id 到显示文本的映射
-var _display_text_map: Dictionary = {
-	"Pressure1": "高压I：apm总量增加20%",
-	"Pressure2": "高压II：apm总量增加30%",
-	"Pressure3": "高压III：apm总量增加50%",
-	"StrengthA": "力量（受击）：受到双倍攻击",
-	"StrengthB": "力量（攻击）：双倍抵消受到的攻击",
-	"GravityA": "重力：方块出现后将会立刻落地",
-	"SuddenlyDeath_1": "突然死亡I：垃圾行上涨速度略微增加",
-	"SuddenlyDeath_2": "突然死亡II：垃圾行上涨速度增加，并且上涨上限略微增加",
-	"SuddenlyDeath_3": "突然死亡III：垃圾行上涨速度大幅度增加，并且上涨上限增加",
-	"SuddenlyDeath_4": "突然死亡IV：垃圾行会一次性全部上涨",
-	"SuddenlyDeath_5": "突然死亡V：垃圾行会一次性全部上涨，并且上涨上限增加",
-	"SuddenlyDeath_6": "突然死亡VI：垃圾行会一次性全部上涨，并且上涨上限增加，缓冲时间大幅度缩短",
-	"SuddenlyDeath_7": "突然死亡VII：垃圾行会一次性全部上涨，并且上涨上限大幅度增加，几乎没有缓冲时间",
-	"SuddenlyDeath_8": "突然死亡VIII：垃圾行在缓冲结束后就会一次性全部上涨",
-	"SuddenlyDeath_9": "突然死亡IV：垃圾行在缓冲结束后就会一次性全部上涨，缓冲时间大幅度缩短",
-	"SuddenlyDeath_10": "突然死亡X：垃圾行在缓冲结束后就会一次性全部上涨，缓冲时间极大幅度缩短",
-	"Invisible_1":"隐形I：开启隐形",
-}
+var _display_text_map: Dictionary = {}
 
+# 挑战组合配置（从BuffChoseData.json的BuffCombination读取）
+# 组合名 -> {"Info": 显示文本, "Group": [组名列表], "Color": [r,g,b](可选)}
+var _combination_map: Dictionary = {}
+
+# 组合分组（从BuffChoseData.json的BuffGroup读取）：组名 -> [box_id, ...]
+var _buff_group_map: Dictionary = {}
+
+# 挑战组合 Label（显示在buff列表末尾）
+var _combination_label: Label = null
 
 # ========== Buff/Debuff 倍率配置 ==========
 
@@ -65,11 +56,15 @@ var _display_text_map: Dictionary = {
 	extra_percent_apm = 0.0,
 	
 	# ---- Garbage ----
-	stage_garbage_time = [10,8,7,7,6,6,5,5,4,4,3],
+	stage_garbage_time = [10,8,7,7,6,6,5,5,4,3,2,2,2,1,1,1,0.5],
 	garbage_collect_percent_array = [0.4,0.3,0.2,0.1,0.1,0.2,0.2,0.3,0.3,0.4],
 	garbage_divide_percent_array = [0.8,0.6,0.4,0.2,0.2,0.1,0.1,0,0.1,0.2,0.3],
-	pressure_mult_array = [1,1,1,1,1,1,1,1,1,1,1.25,1.5,2,2.5,3,4,5,7,10],
+	pressure_mult_array = [1,1,1,1,1,1,1,1,1,1,1.25,1.5,2,2.5,3,4,5,6,7],
+	garbage_hole_change_percent_array = [0.1,0.1,0.1,0.2,0.4,0.5,0.6,0.7,0.8,0.9],
 	send_mult_attack = 1.0,
+	
+	# Gravity
+	gravity_drop_time_array = [5],
 	
 	# ---- Tower Climb ----
 	tower_lowest_speed = 0.1,
@@ -95,25 +90,7 @@ var _display_text_map: Dictionary = {
 ## Buff/Debuff 配置（直接赋值倍率，不再引用 tower_init_data）
 ## 值直接写倍率/原始值，float 类型的值会与 tower_init_data 对应键相乘累加
 ## 键不在 tower_init_data 中时，整个值键对会存入 extra_data_dict
-var _buff_config_map: Dictionary = {
-	"Pressure1": {"total_apm_buff_mult": 1.2},
-	"Pressure2": {"total_apm_buff_mult": 1.3},
-	"Pressure3": {"total_apm_buff_mult": 1.5},
-	"StrengthA": {"send_mult_attack": 2.0},
-	"StrengthB": {"mult_defend": 2.0},
-	"GravityA": {"gravity_drop_time": 0},
-	"SuddenlyDeath_1": {"garbage_rise_time_delay": 0.4},
-	"SuddenlyDeath_2": {"garbage_rise_time_delay": 0.3,"garbage_cap":5},
-	"SuddenlyDeath_3": {"garbage_rise_time_delay": 0.1,"garbage_cap":8},
-	"SuddenlyDeath_4": {"suddenly_death_mode": true},
-	"SuddenlyDeath_5": {"suddenly_death_mode": true,"garbage_cap":8},
-	"SuddenlyDeath_6": {"suddenly_death_mode": true,"garbage_cap":8,"buffer_duration":1},
-	"SuddenlyDeath_7": {"suddenly_death_mode": true,"garbage_cap":12,"buffer_duration":0.1},
-	"SuddenlyDeath_8": {"suddenly_death_mode": true,"drop_limit_cancel":true},
-	"SuddenlyDeath_9": {"suddenly_death_mode": true,"drop_limit_cancel":true,"buffer_duration":1},
-	"SuddenlyDeath_10": {"suddenly_death_mode": true,"drop_limit_cancel":true,"buffer_duration":0.5},
-	"Invisible_1": {"tetris_invisible": 1},
-}
+var _buff_config_map: Dictionary = {}
 
 # ToggleBox 节点引用（可在编辑器中拖入或由代码动态添加）
 @export var toggle_boxes: Array[ToggleBox] = []
@@ -131,10 +108,75 @@ var _buff_config_map: Dictionary = {
 var _panel: Panel = null
 
 
+# ========== 数据加载 ==========
+
+## 从BuffChoseData.json读取互斥组/显示文本/倍率配置，覆盖默认值
+## 文件不存在或解析失败时保留代码中的默认配置
+func _load_buff_data_from_json() -> void:
+	if not FileAccess.file_exists(BUFF_DATA_PATH):
+		# 已注释（调试噪音）：print("BuffChoseData.json 不存在，使用默认配置: ", BUFF_DATA_PATH)
+		return
+	
+	var file = FileAccess.open(BUFF_DATA_PATH, FileAccess.READ)
+	if not file:
+		push_error("无法打开 BuffChoseData.json: ", BUFF_DATA_PATH)
+		return
+	
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	var error = json.parse(json_string)
+	if error != OK:
+		push_error("解析 BuffChoseData.json 失败: ", json.get_error_message())
+		return
+	
+	var data = json.data
+	if typeof(data) != TYPE_DICTIONARY:
+		push_error("BuffChoseData.json 格式错误")
+		return
+	
+	# BuffConflick → 互斥选框组
+	if data.has("BuffConflick") and typeof(data["BuffConflick"]) == TYPE_DICTIONARY:
+		_mutually_exclusive_groups = data["BuffConflick"]
+	
+	# BuffInfo → 显示文本
+	if data.has("BuffInfo") and typeof(data["BuffInfo"]) == TYPE_DICTIONARY:
+		_display_text_map = data["BuffInfo"]
+	
+	# BuffChange → 倍率配置
+	if data.has("BuffChange") and typeof(data["BuffChange"]) == TYPE_DICTIONARY:
+		_buff_config_map = data["BuffChange"]
+	
+	# BuffCombination → 挑战组合配置
+	if data.has("BuffCombination") and typeof(data["BuffCombination"]) == TYPE_DICTIONARY:
+		_combination_map = data["BuffCombination"]
+	
+	# BuffGroup → 组合分组（组名 -> box_id列表）
+	if data.has("BuffGroup") and typeof(data["BuffGroup"]) == TYPE_DICTIONARY:
+		_buff_group_map = data["BuffGroup"]
+
+
+## 内置兜底配置：某些buff不依赖JSON配置，代码内置默认值
+## Talentless（无才能）：勾选后传递 NoSpin=true，禁用整个Spin判定
+func _apply_builtin_fallbacks() -> void:
+	if not _display_text_map.has("Talentless"):
+		_display_text_map["Talentless"] = "无才能：禁用Spin判定"
+	if not _buff_config_map.has("Talentless"):
+		_buff_config_map["Talentless"] = {"NoSpin": true}
+
+
 # ========== 生命周期 ==========
 
 func _ready():
+	# 先读取BuffChoseData.json覆盖默认配置
+	_load_buff_data_from_json()
+	# 内置兜底配置（Talentless无才能，不依赖JSON）
+	_apply_builtin_fallbacks()
+	
 	_panel = get_node_or_null("../Panel") as Panel
+	# 若未在编辑器中配置toggle_boxes，则自动发现场景中的ToggleBox节点
+	_discover_toggle_boxes()
 	_connect_signals()
 	_connect_toggle_boxes()
 	
@@ -144,6 +186,7 @@ func _ready():
 	# 更新已有标签显示（如 default_checked 为 true 的选框）
 	_update_all_labels()
 	_update_summary_label()
+	_update_combination_label()
 	
 	# Demo: 打印初始状态
 	#print("ToggleBox 数量: ", toggle_boxes.size())
@@ -195,6 +238,10 @@ func _apply_ui_scale(_new_scale: float = -1.0) -> void:
 	# 调整汇总标签字体
 	if _summary_label:
 		_summary_label.add_theme_font_size_override("font_size", max(12, int(18 * s)))
+	
+	# 调整挑战组合标签字体
+	if _combination_label:
+		_combination_label.add_theme_font_size_override("font_size", max(12, int(20 * s)))
 
 
 # ========== 信号连接 ==========
@@ -204,6 +251,26 @@ func _connect_signals():
 		back_button.pressed.connect(_on_back_button_pressed)
 	if start_button:
 		start_button.pressed.connect(_on_start_button_pressed)
+
+
+## 自动发现场景中的ToggleBox节点（当toggle_boxes未在编辑器中配置时）
+## 递归遍历本节点的父级（CanvasLayer）下所有子节点，按树顺序收集
+func _discover_toggle_boxes() -> void:
+	if not toggle_boxes.is_empty():
+		return
+	var found: Array[ToggleBox] = []
+	var root_node: Node = get_parent()
+	if root_node:
+		_find_toggle_boxes_recursive(root_node, found)
+	if not found.is_empty():
+		toggle_boxes = found
+		# 已注释（调试噪音）：print("自动发现 ToggleBox 节点: ", toggle_boxes.size())
+
+func _find_toggle_boxes_recursive(node: Node, found: Array[ToggleBox]) -> void:
+	if node is ToggleBox:
+		found.append(node)
+	for child in node.get_children():
+		_find_toggle_boxes_recursive(child, found)
 
 
 ## 连接所有 ToggleBox 的状态切换信号
@@ -320,6 +387,104 @@ func _update_summary_label() -> void:
 	_summary_label.show()
 
 
+# ========== 挑战组合 ==========
+
+## 根据组名获取对应的box_id列表（精确匹配优先，失败时尝试大小写不敏感匹配）
+## 兼容JSON中组名大小写差异（如 "Nohold" vs "NoHold"）
+func _get_group_box_ids(group_name: String) -> Array:
+	if _buff_group_map.has(group_name):
+		return _buff_group_map[group_name]
+	var lower_name: String = group_name.to_lower()
+	for key: String in _buff_group_map:
+		if key.to_lower() == lower_name:
+			return _buff_group_map[key]
+	return []
+
+## 解析颜色字段（支持 [r,g,b]/[r,g,b,a] 数组或 "#rrggbb" 字符串），失败返回 null
+func _parse_color(value: Variant) -> Variant:
+	if typeof(value) == TYPE_ARRAY:
+		var arr: Array = value
+		if arr.size() >= 3:
+			var a: float = 1.0
+			if arr.size() >= 4:
+				a = float(arr[3])
+			return Color(float(arr[0]), float(arr[1]), float(arr[2]), a)
+	elif typeof(value) == TYPE_STRING:
+		var s: String = str(value)
+		if Color.html_is_valid(s):
+			return Color(s)
+	return null
+
+## 更新挑战组合显示：当已选框恰好（且仅）等于某组合Group内的全部box时，
+## 在buff列表末尾显示 "挑战组合：XXXX"（XXXX为该组合的Info内容）
+## Color字段为预留颜色读取字段，未读取到（或格式错误）时使用文本默认颜色
+func _update_combination_label() -> void:
+	if not buff_list:
+		return
+	
+	# 当前已选框集合
+	var selected: Array[String] = get_checked_toggle_ids()
+	selected.sort()
+	
+	var matched_texts: Array[String] = []
+	var matched_color: Color = Color.WHITE
+	var has_color: bool = false
+	
+	for comb_name: String in _combination_map:
+		var comb: Variant = _combination_map[comb_name]
+		if typeof(comb) != TYPE_DICTIONARY or not comb.has("Group"):
+			continue
+		
+		# 汇总该组合Group内所有组对应的box_id
+		var expected: Array = []
+		var group_valid: bool = true
+		for group_name: Variant in comb["Group"]:
+			var ids: Array = _get_group_box_ids(str(group_name))
+			if ids.is_empty():
+				group_valid = false
+				push_warning("挑战组合 %s 引用的组不存在: %s" % [comb_name, group_name])
+				break
+			expected += ids
+		if not group_valid:
+			continue
+		expected.sort()
+		
+		# 且仅满足：已选框集合与组合期望集合完全一致才显示
+		if selected != expected:
+			continue
+		
+		var info_text: String = str(comb.get("Info", ""))
+		if info_text.is_empty():
+			info_text = comb_name
+		matched_texts.append(info_text)
+		
+		# 预留color读取字段：存在且可解析时使用，否则保持文本默认颜色
+		if not has_color and comb.has("Color"):
+			var c: Variant = _parse_color(comb["Color"])
+			if c != null:
+				matched_color = c
+				has_color = true
+	
+	if matched_texts.is_empty():
+		if _combination_label:
+			_combination_label.hide()
+		return
+	
+	if not _combination_label:
+		_combination_label = Label.new()
+		_combination_label.add_theme_font_size_override("font_size", max(12, int(20 * 1.0)))
+		buff_list.add_child(_combination_label)
+	
+	_combination_label.text = "挑战组合：" + "\n".join(matched_texts)
+	if has_color:
+		_combination_label.add_theme_color_override("font_color", matched_color)
+	else:
+		_combination_label.remove_theme_color_override("font_color")
+	_combination_label.show()
+	# 确保显示在buff列表最后（位于汇总标签之后）
+	buff_list.move_child(_combination_label, buff_list.get_child_count() - 1)
+
+
 # ========== ToggleBox 回调 ==========
 
 ## 任意 ToggleBox 切换时触发
@@ -339,6 +504,8 @@ func _on_toggle_box_toggled(box_id: String, is_checked: bool, _value: Variant) -
 	_update_all_labels()
 	# 更新合并汇总（去重显示）
 	_update_summary_label()
+	# 更新挑战组合显示
+	_update_combination_label()
 
 
 ## 互斥逻辑：取消同组内其他选框的选中状态

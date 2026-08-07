@@ -131,7 +131,8 @@ static func apply_key_bindings_from_dict(settings: Dictionary):
 				key_event.keycode = keycode
 				InputMap.action_add_event(action, key_event)
 			else:
-				print("警告: 未知按键名称 ", key_name, " 用于动作 ", action)
+				pass
+				# 已注释（调试噪音）：print("警告: 未知按键名称 ", key_name, " 用于动作 ", action)
 
 ## 获取当前所有动作的按键名称（用于保存）
 static func get_current_key_names() -> Dictionary:
@@ -161,7 +162,7 @@ static func save_settings(settings: Dictionary) -> bool:
 	if file:
 		file.store_string(json_string)
 		file.close()
-		print("设置已保存到: ", SAVEFILE_PATH)
+		# 已注释（调试噪音）：print("设置已保存到: ", SAVEFILE_PATH)
 		return true
 	else:
 		push_error("保存设置失败: ", SAVEFILE_PATH)
@@ -170,7 +171,7 @@ static func save_settings(settings: Dictionary) -> bool:
 ## 从JSON文件加载设置
 static func load_settings() -> Dictionary:
 	if not FileAccess.file_exists(SAVEFILE_PATH):
-		print("配置文件不存在，使用默认设置")
+		# 已注释（调试噪音）：print("配置文件不存在，使用默认设置")
 		return get_default_settings()
 	
 	var file = FileAccess.open(SAVEFILE_PATH, FileAccess.READ)
@@ -198,7 +199,7 @@ static func load_settings() -> Dictionary:
 		if not data.has(key):
 			data[key] = default_settings[key]
 	
-	print("设置已加载: ", SAVEFILE_PATH)
+	# 已注释（调试噪音）：print("设置已加载: ", SAVEFILE_PATH)
 	return data
 
 ## 检查配置文件是否存在
@@ -210,9 +211,9 @@ static func initialize_settings():
 	if setting_file_exists():
 		var settings = load_settings()
 		apply_key_bindings_from_dict(settings)
-		print("已加载用户设置")
+		# 已注释（调试噪音）：print("已加载用户设置")
 	else:
 		var default_settings = get_default_settings()
 		save_settings(default_settings)
 		apply_default_key_bindings()
-		print("未找到配置文件，已创建默认设置")
+		# 已注释（调试噪音）：print("未找到配置文件，已创建默认设置")

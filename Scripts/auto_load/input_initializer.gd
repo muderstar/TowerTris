@@ -6,4 +6,4 @@ extends Node
 func _ready():
 	# 初始化设置
 	UserSetting.initialize_settings()
-	print("输入系统初始化完成")
+	# 已注释（调试噪音）：print("输入系统初始化完成")

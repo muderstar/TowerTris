@@ -42,15 +42,18 @@ func _draw() -> void:
 	if not toggle_row or toggle_row.size.x <= 0:
 		return
 	
+	# ConnectorLine 自身在行内的偏移（行内前面有 ChoseType Label 等节点时不为 0）
+	# 选框坐标是相对于 toggle_row 的，而 draw_line 使用的是 ConnectorLine 本地坐标，
+	# 因此所有坐标都要减去 ConnectorLine 的位置偏移，否则提示线会整体偏移。
+	var offset := position
+	
 	# 收集所有 ToggleBox 的中心 X 坐标（相对于 toggle_row）
 	var centers: Array[float] = []
-	var box_ids: Array[String] = []
 	for child in toggle_row.get_children():
 		var tb := child as ToggleBox
 		if tb:
 			var cx := tb.position.x + tb.size.x * 0.5
 			centers.append(cx)
-			box_ids.append(tb.box_id)
 	
 	if centers.size() < 2:
 		return
@@ -61,7 +64,7 @@ func _draw() -> void:
 	# 画出相邻选框之间的线段（跳过选框内部）
 	var half_box := 16.0  # 选框宽 32px 的一半
 	for i in range(centers.size() - 1):
-		var x1 := centers[i] + half_box    # 左侧选框右边缘
-		var x2 := centers[i + 1] - half_box # 右侧选框左边缘
+		var x1 := centers[i] + half_box - offset.x     # 左侧选框右边缘
+		var x2 := centers[i + 1] - half_box - offset.x # 右侧选框左边缘
 		if x2 > x1:
-			draw_line(Vector2(x1, center_y), Vector2(x2, center_y), line_color, line_width)
+			draw_line(Vector2(x1, center_y - offset.y), Vector2(x2, center_y - offset.y), line_color, line_width)

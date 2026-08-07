@@ -2,7 +2,7 @@ extends Node2D
 class_name TowerController
 
 static var ATTACK_DATA_PATH : String = "user://Savedatas/attack_setting.json"
-static var FLOOR_HIGHER : Array = [0,50,150,300,450,650,850,1100,1350,1650,2550,3000,3500,4500,5500,7500,9000,12000]
+static var FLOOR_HIGHER : Array = [0,50,150,300,450,650,850,1100,1350,1650,2550,3000,3500,4500,5500,6500,8000,9500,11000]
 
 @export var tetris_controller: TetrisController
 @export var garbage_line_controller: TetrisGarbageLineController
@@ -17,24 +17,28 @@ var current_stage : int = 0
 var current_apm : float = 0
 var extra_percent_apm : float = 0
 
-var stage_garbage_time : Array = [10,8,7,7,6,6,5,4,3,1,0.5]
+var stage_garbage_time : Array = [10,8,7,7,6,6,5,5,4,3,2,2,2,1,1,1,0.5]
 var stage_garbage_divide : Array = []
 var garbage_collect_percent : float = 0.1
 var garbage_collect_percent_array: Array = [0.4,0.3,0.2,0.1,0.1,0.2,0.2,0.3,0.3,0.2]
 var garbage_sent_time : float = 0
 var garbage_divide_percent : float = 0
 var garbage_divide_percent_array: Array = [0.8,0.6,0.4,0.2,0.2,0.1,0.1,0,0.1,0.2,0.3]
+var garbage_hole_change_percent_array: Array = [0.1,0.1,0.1,0.2,0.4,0.5,0.6,0.7,0.8,0.9]
 var collected_count : int = 0
 var collected_garbage : Array = []
 var pressure_mult : float = 1.0
 var send_mult_attack: float = 1
-var pressure_mult_array: Array = [1,1,1,1,1,1,1,1,1,1,1.25,1.5,2,2.5,3,4,5,7,10]
+var pressure_mult_array: Array = [1,1,1,1,1,1,1,1,1,1,1.25,1.5,2,2.5,3,4,5,6,7]
+
+var gravity_drop_time_array: Array = [5]
+var lock_delay_array: Array = [1]
 
 var tower_meter: float = 0.0            
 var tower_speed_meter: float = 0.0      
 var tower_lowest_speed: float = 0.1
 var tower_dropped_speed: float = 0.01
-var tower_dropped_mult: Array = [1,1,1,1,1,1.1,1.2,1.3,1.4,1.5,1.7,1.9,2]
+var tower_dropped_mult: Array = [0.8,0.9,1,1,1,1.1,1.2,1.3,1.4,1.5,1.7,1.9,2]
 var tower_current_dropped_mult: float = 1.0
 var attack_to_meter_mult: float = 0.2
 var attack_to_speed_mult: float = 0.1
@@ -130,11 +134,70 @@ func _extra_data_deal():
 		if board_drawer:
 			board_drawer.drop_visible_time = extra_data_dict["drop_visible_time"]
 	
-	if extra_data_dict.has("gravity_drop_time"):
-		tetris_controller.gravity_drop_time = extra_data_dict["gravity_drop_time"]
-	
 	if extra_data_dict.has("spin0_btb_enabled"):
 		clear_line_controller.spin0_btb_enabled = extra_data_dict["spin0_btb_enabled"]
+	
+	if extra_data_dict.has("tetris_allspin"):
+		clear_line_controller.tetris_allspin = extra_data_dict["tetris_allspin"]
+
+	# bot 评估权重（可由 buff 界面调整，经 bridge 的 S 命令下发到 ColdClear）。
+	# 原则：bridge 导出权重为主，仅当 buff 显式传参对应键时才覆盖 bridge。
+	# 这里把显式传参的键记入 clear_line_controller.bot_weight_override_keys，
+	# get_damage_tables 只返回这些键，bridge 才会覆盖默认权重。
+	clear_line_controller.bot_weight_override_keys = {}
+	var bot_key_to_var := {
+		"bot_eval_mult": "eval_mult",
+		"bot_attack_efficiency_weight": "attack_efficiency_weight",
+		"bot_b2b_clear": "b2b_clear",
+		"bot_height": "height",
+		"bot_clear4": "clear4",
+		"bot_clear1": "clear1",
+		"bot_clear2": "clear2",
+		"bot_clear3": "clear3",
+		"bot_tspin1": "tspin1",
+		"bot_tspin2": "tspin2",
+		"bot_tspin3": "tspin3",
+		"bot_mini_tspin1": "mini_tspin1",
+		"bot_mini_tspin2": "mini_tspin2",
+		"bot_allspin1": "allspin1",
+		"bot_allspin2": "allspin2",
+		"bot_allspin3": "allspin3",
+		"bot_allspin3plus": "allspin3plus",
+		"bot_perfect_clear": "perfect_clear",
+		"bot_combo_garbage": "combo_garbage",
+		"bot_wasted_t": "wasted_t",
+		"bot_move_time": "move_time",
+		"bot_allspin_repeat_penalty": "allspin_repeat_penalty",
+	}
+	for extra_key in bot_key_to_var:
+		if extra_data_dict.has(extra_key):
+			var weight_key: String = bot_key_to_var[extra_key]
+			clear_line_controller.set("bot_" + weight_key, int(extra_data_dict[extra_key]))
+			clear_line_controller.bot_weight_override_keys[weight_key] = true
+
+	# bot 并行搜索线程数（buff 可调，0 = 由 bridge 自动决定）
+	if extra_data_dict.has("bot_threads"):
+		clear_line_controller.bot_threads = int(extra_data_dict["bot_threads"])
+
+	# Talentless（无才能）：为true时跳过整个Spin判定
+	if extra_data_dict.has("NoSpin"):
+		if clear_line_controller:
+			clear_line_controller.no_spin = bool(extra_data_dict["NoSpin"])
+	
+	# NoHold模式：关闭Hold显示并禁用Hold输入（JSON中键名为"NoHold"）
+	if extra_data_dict.has("NoHold") or extra_data_dict.has("no_hold"):
+		var no_hold_value: bool = extra_data_dict.get("NoHold", extra_data_dict.get("no_hold", false))
+		if tetris_controller:
+			tetris_controller.no_hold = no_hold_value
+		if board_drawer:
+			board_drawer.no_hold = no_hold_value
+	
+	if extra_data_dict.has("BotMode"):
+		tetris_controller.bot_mode = true
+
+## 供 bot 读取当前关卡 buff 调整后的攻击倍率（send_mult_attack）。
+func get_send_mult_attack() -> float:
+	return send_mult_attack
 
 func _set_timer():
 	garbage_sent_timer = Timer.new()
@@ -167,6 +230,9 @@ func _process(delta: float) -> void:
 	current_apm = total_apm * pressure_mult * max_percent
 	garbage_collect_percent = default_get_oneD_array_things(current_stage,garbage_collect_percent_array)
 	garbage_divide_percent = default_get_oneD_array_things(current_stage,garbage_divide_percent_array)
+	garbage_line_controller.garbage_messy = default_get_oneD_array_things(current_stage,garbage_hole_change_percent_array)
+	tetris_controller.gravity_drop_time = default_get_oneD_array_things(current_stage,gravity_drop_time_array)
+	tetris_controller.lock_delay = default_get_oneD_array_things(current_stage,lock_delay_array)
 	
 	if garbage_sent_time != 0 and garbage_sent_timer.is_stopped():
 		garbage_sent_timer.wait_time = garbage_sent_time + tower_rng.randf_range(-garbage_sent_time/2.0,garbage_sent_time/2.0)
@@ -181,7 +247,7 @@ func _tower_climb(delta: float):
 		tower_speed_meter = tower_lowest_speed
 	elif tower_speed_meter > tower_lowest_speed:
 		var x = tower_speed_meter
-		tower_speed_meter -= ((x*log(x) + x)/130.0) * delta * tower_current_dropped_mult
+		tower_speed_meter -= ((x*log(x) + x)/120.0) * delta * tower_current_dropped_mult
 	else:
 		pass
 	
@@ -213,6 +279,13 @@ func _try_sent_garbage():
 			collected_garbage.clear()
 		collected_count = 0
 	else:
+		i = floor(collected_garbage.size() / 2.0)
+		var temp_sent_garbage : Array
+		while i > 0:
+			i -= 1
+			temp_sent_garbage.append(collected_garbage[0])
+			collected_garbage.remove_at(0)
+		_tower_garbage_sent(temp_sent_garbage)
 		collected_count += 1
 
 func _tower_garbage_sent(attack: Array):

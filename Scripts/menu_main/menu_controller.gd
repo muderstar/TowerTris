@@ -55,12 +55,12 @@ func _connect_signals():
 		quit_button.pressed.connect(_on_quit_button_pressed)
 
 func _on_start_button_pressed():
-	print("开始游戏")
+	# 已注释（调试噪音）：print("开始游戏")
 	GlobalData.reset_stats()
 	get_tree().change_scene_to_file(game_scene_path)
 
 func _on_setting_button_pressed():
-	print("设置按钮被点击")
+	# 已注释（调试噪音）：print("设置按钮被点击")
 	get_tree().change_scene_to_file(setting_scene_path)
 
 # ====== 回放按钮相关（已禁用） ======
@@ -113,7 +113,7 @@ func _on_setting_button_pressed():
 # 		_file_dialog = null
 
 func _on_quit_button_pressed():
-	print("退出游戏")
+	# 已注释（调试噪音）：print("退出游戏")
 	get_tree().quit()
 
 func _exit_tree():

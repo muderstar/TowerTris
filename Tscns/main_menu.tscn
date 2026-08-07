@@ -21,7 +21,7 @@ offset_left = 416.0
 offset_top = 45.0
 offset_right = 553.0
 offset_bottom = 87.0
-text = "Welcome to tetris"
+text = "Welcome to TowerTris"
 
 [node name="StartButton" type="Button" parent="Panel" unique_id=1379869909]
 layout_mode = 0

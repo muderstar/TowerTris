@@ -89,11 +89,11 @@ func _load_settings():
 		current_settings = UserSetting.load_settings()
 		# 应用键位到InputMap
 		UserSetting.apply_key_bindings_from_dict(current_settings)
-		print("已加载用户设置")
+		# 已注释（调试噪音）：print("已加载用户设置")
 	else:
 		current_settings = UserSetting.get_default_settings()
 		UserSetting.apply_default_key_bindings()
-		print("未找到配置文件，使用默认设置")
+		# 已注释（调试噪音）：print("未找到配置文件，使用默认设置")
 
 ## 连接信号
 func _connect_signals():
@@ -249,7 +249,7 @@ func _clear_conflicting_keys(keycode: int) -> void:
 			if button:
 				button.text = "未绑定"
 			
-			print("按键覆盖：动作 \"%s\" 的按键 \"%s\" 已被动作 \"%s\" 覆盖" % [action, key_name, waiting_key_action])
+			# 已注释（调试噪音）：print("按键覆盖：动作 \"%s\" 的按键 \"%s\" 已被动作 \"%s\" 覆盖" % [action, key_name, waiting_key_action])
 
 ## 设置按键到动作
 func _set_key_for_action(action: String, keycode: int):

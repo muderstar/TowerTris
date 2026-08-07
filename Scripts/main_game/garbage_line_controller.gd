@@ -9,18 +9,21 @@ class_name TetrisGarbageLineController
 @export var tetris_controller: TetrisController  # 方块控制器引用（用于清除当前方块）
 
 # 垃圾行配置
-@export var garbage_cap: int = 3                      # 垃圾行最大数量（与版面garbage_cap对应）
+@export var garbage_cap: int = 3                      # 每次锁定最多增长的垃圾行数量（也用于版面garbage_cap线）
 @export var garbage_messy: float = 0.9               # 垃圾行更换洞口的概率（0-1）
 @export var garbage_color: Color = Color(0.5, 0.5, 0.5, 1.0)  # 垃圾行颜色（浅灰色）
 @export var solid_garbage_color: Color = Color(0.55, 0.55, 0.55, 1.0)  # 实心垃圾行颜色（浅灰色）
 @export var garbage_empty_color: Color = Color(0.08, 0.08, 0.08, 1.0)  # 垃圾行洞口颜色（与版面背景一致）
-@export var max_garbage_per_lock: int = 8            # 每次锁定最多增长的垃圾行数（应与garbage_cap对应）
 
 # 垃圾缓冲配置
 @export var buffer_duration: float = 3.0             # 垃圾缓冲时间（秒）
 
 # 抵消倍率：每 1 行攻击可抵消 mult_defend 行垃圾
 @export var mult_defend: float = 1.0                 # 抵消倍率（默认 1.0）
+
+## 供 bot 读取当前关卡 buff 调整后的防御倍率（mult_defend）。
+func get_mult_defend() -> float:
+	return mult_defend
 
 # ====== 瞬间/逐行上涨模式 ======
 ## true = 旧逻辑：锁定方块时一次性上涨所有垃圾行
@@ -212,16 +215,20 @@ func has_buffered_garbage() -> bool:
 ## ========== 强制上涨系统（核心功能） ==========
 
 ## 强制上涨行数（通用功能，支持自定义行数据生成器）
-func force_raise_rows(row_count: int, row_generator: Callable) -> bool:
+## 版面版本号：每次垃圾行成功上涨（force_raise_rows 真正上移了行）时 +1。
+## 用于让 bot 感知“垃圾行抬升期间版面已变化”，从而重新请求决策，避免执行过期计划。
+var board_version: int = 0
+
+func force_raise_rows(row_count: int, row_generator: Callable, skip_piece_handling: bool = false) -> bool:
 	if row_count <= 0:
 		return false
 	
 	# 限制单次上涨数量
-	row_count = min(row_count, max_garbage_per_lock)
+	row_count = min(row_count, garbage_cap)
 	
 	# 如果tetris_controller存在，先清除当前方块并记录其位置
 	var current_pos = null
-	if tetris_controller:
+	if tetris_controller and not skip_piece_handling:
 		# 保存当前方块位置
 		current_pos = tetris_controller.current_position
 		# 清除当前方块（从版面上移除）
@@ -288,8 +295,8 @@ func force_raise_rows(row_count: int, row_generator: Callable) -> bool:
 			tetris_controller._game_over("方块堆积过高")
 		return false
 	
-	# 如果tetris_controller存在，恢复当前方块（位置向上移动row_count行）
-	if tetris_controller and current_pos != null:
+	# 如果tetris_controller存在且需要处理当前方块，恢复当前方块（位置向上移动row_count行）
+	if tetris_controller and not skip_piece_handling and current_pos != null:
 		# 计算新位置：Y坐标向上移动row_count行（减小）
 		var new_pos = Vector2i(current_pos.x, current_pos.y - row_count)
 		
@@ -323,6 +330,22 @@ func force_raise_rows(row_count: int, row_generator: Callable) -> bool:
 	
 	# 请求重绘
 	board_drawer.queue_redraw()
+	
+	# 垃圾行洞口记录随版面上移：整版上移 row_count 行后，已有垃圾行的实际行索引
+	# 减小 row_count（y=0 为顶部），被挤出顶部的记录应删除；底部新增行的洞口由调用方
+	# （_on_rise_timer_timeout / apply_garbage_to_board）另行记录。
+	# 若不同步，逐行上涨时 garbage_rows_data 索引错位，会导致 is_garbage_hole /
+	# _is_hole_position 判定丢失/错乱（洞口“消失”或出现在错误行）。
+	if row_count > 0 and not garbage_rows_data.is_empty():
+		var shifted: Dictionary = {}
+		for row_y in garbage_rows_data:
+			var new_y: int = int(row_y) - row_count
+			if new_y >= 0:
+				shifted[new_y] = garbage_rows_data[row_y]
+		garbage_rows_data = shifted
+	
+	# 版面已因垃圾行上涨而改变：递增版本号，通知 bot 重新决策
+	board_version += 1
 	
 	##print("强制上涨了 ", row_count, " 行")
 	return true
@@ -488,12 +511,12 @@ func prepare_garbage_for_lock() -> int:
 	if garbage_enter_array.is_empty():
 		return 0
 	
-	# 计算本次要增长的垃圾行数量（最多max_garbage_per_lock行）
+	# 计算本次要增长的垃圾行数量（最多garbage_cap行）
 	var total_available = 0
 	for entry in garbage_enter_array:
 		total_available += entry["count"]
 	
-	var total_to_process = min(total_available, max_garbage_per_lock)
+	var total_to_process = min(total_available, garbage_cap)
 	
 	if total_to_process <= 0:
 		return 0
@@ -564,7 +587,7 @@ func prepare_garbage_for_lock() -> int:
 		
 		enter_index += 1
 	
-	# 如果还有溢出的行（超过了max_garbage_per_lock），保存当前洞口用于下次
+	# 如果还有溢出的行（超过了garbage_cap），保存当前洞口用于下次
 	if total_available > total_to_process and has_current_hole:
 		has_overflow = true
 		current_active_hole = current_hole.duplicate()
@@ -592,7 +615,7 @@ func apply_garbage_to_board() -> bool:
 		total_garbage_rows += batch["count"]
 	
 	# 限制总垃圾行数
-	total_garbage_rows = min(total_garbage_rows, max_garbage_per_lock)
+	total_garbage_rows = min(total_garbage_rows, garbage_cap)
 	
 	if total_garbage_rows <= 0:
 		is_garbage_locked = false
@@ -725,6 +748,36 @@ func process_garbage_after_lock() -> int:
 		# 不返回 0 表示有数据进入队列
 		return _pending_rise_queue.size()
 
+## Allspin：上涨 x 行标准垃圾行（直接插入版面，不走延迟队列，消行完成后调用）
+func insert_allspin_garbage_directly(row_count: int = 1) -> void:
+	if row_count <= 0:
+		return
+	var all_holes = []
+	for i in range(row_count):
+		var hole = _get_next_hole_position()
+		if hole.is_empty():
+			return
+		all_holes.append(hole)
+	# 创建行生成器
+	var gen = _generate_garbage_row_generator(all_holes[0], false)
+	force_raise_rows(row_count, gen, true)
+
+## Allspin：上涨 x 行标准垃圾行（直接推到上升队列最前面）
+func add_allspin_garbage(row_count: int = 1) -> void:
+	if row_count <= 0:
+		return
+	for i in range(row_count):
+		var hole = _get_next_hole_position()
+		if hole.is_empty():
+			return
+		_pending_rise_queue.push_front({
+			"holes": hole,
+			"is_buffered": false,
+			"color": garbage_color,
+			"empty_color": null,
+		})
+	_start_rise_timer()
+
 ## 检查当前是否有待处理的垃圾行
 func has_pending_garbage() -> bool:
 	return is_garbage_locked or not pending_garbage_data.is_empty()
@@ -748,11 +801,8 @@ func _move_enter_to_rise_queue() -> int:
 	for entry in garbage_enter_array:
 		total_available += entry["count"]
 	
-	# 限流
-	var total_rows = min(total_available, max_garbage_per_lock)
-	
-	# 清空待处理
-	_pending_rise_queue.clear()
+	# 限流（每次锁定最多新增 garbage_cap 行，保留尚未上涨完的旧行，避免丢失）
+	var total_rows = min(total_available, garbage_cap)
 	
 	var remaining = total_rows
 	var enter_index = 0
@@ -810,13 +860,17 @@ func _move_enter_to_rise_queue() -> int:
 	return _pending_rise_queue.size()
 
 ## 启动逐行上涨计时器
+## 仅当计时器未运行时才启动：Godot 的 Timer.start() 在已运行时调用会重置剩余时间，
+## 若上涨队列已有行正在逐行上涨，新垃圾入队（_move_enter_to_rise_queue /
+## add_allspin_garbage）会反复重置计时，导致已排队行的上涨被打断/无限推迟。
 func _start_rise_timer() -> void:
 	if not _rise_timer:
 		return
 	if _pending_rise_queue.is_empty():
 		return
-	_rise_timer.wait_time = garbage_rise_time_delay
-	_rise_timer.start()
+	if _rise_timer.is_stopped():
+		_rise_timer.wait_time = garbage_rise_time_delay
+		_rise_timer.start()
 
 ## 停止逐行上涨计时器
 func _stop_rise_timer() -> void:
@@ -882,13 +936,15 @@ func offset_rise_queue(remaining_damage: int) -> int:
 	
 	return offset_count
 
-## 获取进入队列的大小（总行数，包括缓冲）
+## 获取进入队列的大小（总行数，包括缓冲和逐行上涨队列）
 func get_enter_queue_size() -> int:
 	var total = 0
 	for entry in garbage_enter_array:
 		total += entry["count"]
 	for entry in garbage_buffer:
 		total += entry["count"]
+	# 逐行模式下上涨队列中的行也是待处理垃圾行，必须计入
+	total += _pending_rise_queue.size()
 	return total
 
 ## 获取进入队列的原始数据（只返回正常队列）
