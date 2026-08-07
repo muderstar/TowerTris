@@ -7,12 +7,17 @@
 		"ClassicTetris":{
 			"Info":"经典俄罗斯方块",
 			"Group":["Nohold","Gravity","Talentless"]
+		},
+		"TheToppedOut":{
+			"Info":"爆顶",
+			"Group":["TheToppedOut"]
 		}
 	},
 	"BuffGroup":{
 		"Pressure": ["Pressure1", "Pressure2", "Pressure3"],
 		"Suddenly_Death": ["SuddenlyDeath_1","SuddenlyDeath_2","SuddenlyDeath_3","SuddenlyDeath_4",
 			"SuddenlyDeath_5","SuddenlyDeath_6","SuddenlyDeath_7","SuddenlyDeath_8","SuddenlyDeath_9","SuddenlyDeath_10"],
+		"TheToppedOut":["SuddenlyDeath_10"],
 		"Gravity": ["Gravity_1"],
 		"NoHold": ["NoHold_1"],
 		"Talentless": ["Talentless"]
@@ -65,7 +70,7 @@
 		"SuddenlyDeath_9": {"suddenly_death_mode": true,"drop_limit_cancel":true,"buffer_duration":1},
 		"SuddenlyDeath_10": {"suddenly_death_mode": true,"drop_limit_cancel":true,"buffer_duration":0.5},
 		"Invisible_1": {"tetris_invisible": 1},
-		"Allspin_1": {"tetris_allspin": 1},
+		"Allspin_1": {"tetris_allspin": 1, "allspin_repeat_penalty": -500},
 		"NoHold_1": {"NoHold": true},
 		"Talentless": {"NoSpin": true},
 		"BotPlay": {"BotMode": true}

@@ -17,7 +17,7 @@ var current_stage : int = 0
 var current_apm : float = 0
 var extra_percent_apm : float = 0
 
-var stage_garbage_time : Array = [10,8,7,7,6,6,5,4,3,1,0.5]
+var stage_garbage_time : Array = [10,8,7,7,6,6,5,5,4,3,2,2,2,1,1,1,0.5]
 var stage_garbage_divide : Array = []
 var garbage_collect_percent : float = 0.1
 var garbage_collect_percent_array: Array = [0.4,0.3,0.2,0.1,0.1,0.2,0.2,0.3,0.3,0.2]
@@ -29,7 +29,7 @@ var collected_count : int = 0
 var collected_garbage : Array = []
 var pressure_mult : float = 1.0
 var send_mult_attack: float = 1
-var pressure_mult_array: Array = [1,1,1,1,1,1,1,1,1,1,1.25,1.5,2,2.5,3,4,5,7,10]
+var pressure_mult_array: Array = [1,1,1,1,1,1,1,1,1,1,1.25,1.5,2,2.5,3,4,5,6,7]
 
 var gravity_drop_time_array: Array = [5]
 var lock_delay_array: Array = [1]

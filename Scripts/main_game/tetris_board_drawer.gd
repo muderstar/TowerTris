@@ -39,7 +39,7 @@ class_name TetrisBoardDrawer
 @export var garbage_slot_enabled: bool = true         # 是否启用垃圾槽
 @export var garbage_slot_width: int = 1               # 垃圾槽宽度（格子数）
 @export var garbage_slot_border_color: Color = Color.WHITE  # 垃圾槽边框颜色
-@export var garbage_slot_border_width: float = 1.0    # 垃圾槽边框宽度
+@export var garbage_slot_border_width: float = 2.0    # 垃圾槽边框宽度（与版面边框一致，保证左右两侧粗细相同）
 var garbage_cap : int
 @export var garbage_cap_line_color: Color = Color.WHITE  # 垃圾槽横线颜色
 @export var garbage_bar_color: Color = Color.RED      # 垃圾行矩形颜色

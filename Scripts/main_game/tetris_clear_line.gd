@@ -19,7 +19,7 @@ class_name TetrisClearLine
 @export var text_base_opacity: float = 0.8          # 文本显示时的透明度（半透明，0-1）
 @export var text_fade_duration: float = 1.0         # 文本淡出时长（秒）
 @export var text_drift_cells_per_sec: float = 1.5   # 文本向左漂移速度（格子/秒）
-@export var text_gap_cells: float = 1.0             # 文本与版面左边框的间距（格子数）
+@export var text_gap_cells: float = 1.8             # 文本与版面左边框的间距（格子数）
 
 # 消行/Spin 文本的漂移与淡出倍率（相对默认值的修正：移动略快、淡出更快）
 @export var clear_spin_drift_scale: float = 3.0     # 消行/Spin 漂移速度倍率（>1 为更快）

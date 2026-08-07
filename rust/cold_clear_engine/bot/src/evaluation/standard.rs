@@ -109,12 +109,16 @@ impl Default for Standard {
             top_half: -150,
             top_quarter: -511,
             jeopardy: -11,
+            // 注意：被封死的洞（covered）比开放洞（cavity）更难挖掘——开放洞还能直接填，
+            // 封死洞只能靠消行/精确方块，因此 covered 惩罚应接近甚至不低于 cavity。
+            // 旧值 covered=-55 相对 cavity=-320 明显偏低，导致 bot 决策时对“会封死洞”的
+            // 放置惩罚不足，易留下无法挖掘的死洞。这里提高 covered 与 overhang 惩罚。
             cavity_cells: -320,
             cavity_cells_sq: -12,
-            overhang_cells: -120,
-            overhang_cells_sq: -6,
-            covered_cells: -55,
-            covered_cells_sq: -6,
+            overhang_cells: -140,
+            overhang_cells_sq: -8,
+            covered_cells: -100,
+            covered_cells_sq: -8,
             tslot: [80, 330, 500, 720],
             well_depth: 120,
             max_well_depth: 26,

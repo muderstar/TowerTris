@@ -56,10 +56,10 @@ var _combination_label: Label = null
 	extra_percent_apm = 0.0,
 	
 	# ---- Garbage ----
-	stage_garbage_time = [10,8,7,7,6,6,5,5,4,4,3],
+	stage_garbage_time = [10,8,7,7,6,6,5,5,4,3,2,2,2,1,1,1,0.5],
 	garbage_collect_percent_array = [0.4,0.3,0.2,0.1,0.1,0.2,0.2,0.3,0.3,0.4],
 	garbage_divide_percent_array = [0.8,0.6,0.4,0.2,0.2,0.1,0.1,0,0.1,0.2,0.3],
-	pressure_mult_array = [1,1,1,1,1,1,1,1,1,1,1.25,1.5,2,2.5,3,4,5,7,10],
+	pressure_mult_array = [1,1,1,1,1,1,1,1,1,1,1.25,1.5,2,2.5,3,4,5,6,7],
 	garbage_hole_change_percent_array = [0.1,0.1,0.1,0.2,0.4,0.5,0.6,0.7,0.8,0.9],
 	send_mult_attack = 1.0,
 	
