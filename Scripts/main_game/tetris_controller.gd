@@ -606,6 +606,7 @@ func _update_next_display():
 			var shape = bag_controller.get_original_shape(piece_type)
 			var color = bag_controller.get_piece_color(piece_type)
 			next_pieces.append({
+				"type": piece_type,
 				"shape": shape,
 				"color": color
 			})
@@ -623,7 +624,7 @@ func _draw_current_piece():
 			if current_piece[y][x] == 1:
 				var board_x = current_position.x + x
 				var board_y = current_position.y + y
-				board_drawer.set_cell_color(board_x, board_y, current_color)
+				board_drawer.set_cell_color(board_x, board_y, current_color, current_piece_type)
 
 ## 清除当前方块
 func _clear_current_piece():
@@ -894,7 +895,7 @@ func hold_current_piece():
 		hold_original_shape = bag_controller.get_original_shape(current_piece_type)
 		
 		# 更新Hold显示
-		board_drawer.set_hold_piece(hold_piece, hold_color)
+		board_drawer.set_hold_piece(hold_piece, hold_color, hold_piece_type)
 		
 		# 生成新方块（保持hold状态）
 		spawn_new_piece_keep_hold()
@@ -919,7 +920,7 @@ func hold_current_piece():
 		hold_original_shape = temp_original
 		
 		# 更新Hold显示
-		board_drawer.set_hold_piece(hold_piece, hold_color)
+		board_drawer.set_hold_piece(hold_piece, hold_color, hold_piece_type)
 		
 		# 重置位置（从下往上数第22行）
 		var spawn_x = int((board_drawer.grid_width - current_piece[0].size()) / 2)
@@ -936,7 +937,7 @@ func hold_current_piece():
 			current_original_shape = temp_original
 			hold_piece = bag_controller.get_original_shape(hold_piece_type)
 			hold_color = temp_color  # 恢复hold颜色
-			board_drawer.set_hold_piece(hold_piece, hold_color)
+			board_drawer.set_hold_piece(hold_piece, hold_color, hold_piece_type)
 			_draw_current_piece()
 			return false
 		

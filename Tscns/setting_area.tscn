@@ -4,7 +4,7 @@
 
 [node name="setting_area" type="Node2D" unique_id=687338970]
 
-[node name="SettingArea" type="Control" parent="." unique_id=961848419 node_paths=PackedStringArray("key_left_button", "key_right_button", "key_soft_drop_button", "key_hard_drop_button", "key_left_spin_button", "key_right_spin_button", "key_swap_spin_button", "key_hold_button", "das_slider", "das_value_label", "arr_slider", "arr_value_label", "softdrop_slider", "softdrop_value_label", "save_button", "reset_button", "back_button", "hint_label")]
+[node name="SettingArea" type="Control" parent="." unique_id=961848419 node_paths=PackedStringArray("key_left_button", "key_right_button", "key_soft_drop_button", "key_hard_drop_button", "key_left_spin_button", "key_right_spin_button", "key_swap_spin_button", "key_hold_button", "das_slider", "das_value_label", "arr_slider", "arr_value_label", "softdrop_slider", "softdrop_value_label", "skin_option", "save_button", "reset_button", "back_button", "hint_label")]
 layout_mode = 3
 anchors_preset = 0
 offset_right = 40.0
@@ -24,6 +24,7 @@ arr_slider = NodePath("Panel/SpeedSetting/ARRRow/arr_slider")
 arr_value_label = NodePath("Panel/SpeedSetting/ARRRow/arr_value_label")
 softdrop_slider = NodePath("Panel/SpeedSetting/SoftDropRow/softdrop_slider")
 softdrop_value_label = NodePath("Panel/SpeedSetting/SoftDropRow/softdrop_value_label")
+skin_option = NodePath("Panel/SkinSetting/SkinRow/skin_option")
 save_button = NodePath("Panel/Buttons/save_button")
 reset_button = NodePath("Panel/Buttons/reset_button")
 back_button = NodePath("Panel/Buttons/back_button")
@@ -187,6 +188,23 @@ value = 10.0
 
 [node name="softdrop_value_label" type="Label" parent="SettingArea/Panel/SpeedSetting/SoftDropRow" unique_id=548720238]
 layout_mode = 2
+
+[node name="SkinSetting" type="VBoxContainer" parent="SettingArea/Panel"]
+layout_mode = 0
+offset_left = 337.0
+offset_top = 160.0
+offset_right = 567.0
+offset_bottom = 195.0
+
+[node name="SkinRow" type="HBoxContainer" parent="SettingArea/Panel/SkinSetting"]
+
+[node name="Label" type="Label" parent="SettingArea/Panel/SkinSetting/SkinRow"]
+layout_mode = 2
+text = "Skin"
+
+[node name="skin_option" type="OptionButton" parent="SettingArea/Panel/SkinSetting/SkinRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(160, 0)
 
 [node name="hint_label" type="Label" parent="SettingArea/Panel" unique_id=1549985471]
 layout_mode = 0

@@ -47,7 +47,9 @@ static func get_default_settings() -> Dictionary:
 		# 速度设置
 		"move_das": 0.1,
 		"move_arr": 0.0,
-		"softdrop_delay": 0.1
+		"softdrop_delay": 0.1,
+		# 皮肤设置
+		"skin": "original"
 	}
 
 ## 动作名称列表

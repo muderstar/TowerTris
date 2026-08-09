@@ -100,11 +100,16 @@ var no_hold: bool = false                             # NoHold模式：关闭Hol
 
 # 外部数据引用
 var board_data: Array = []               # 版面数据（用于存储每个格子的颜色/类型）
+var board_piece_types: Array = []        # 版面数据（与board_data同维度，存储每个格子的方块类型，用于贴图渲染）
 var show_grid_lines: bool = true         # 是否显示网格线
+
+# 皮肤
+var skin: TetrisSkin = null              # 当前皮肤（null = 使用纯色）
 
 # Hold方块数据
 var hold_piece_data: Array = []          # 暂存的方块矩阵
 var hold_piece_color: Color = Color.WHITE  # 暂存的方块颜色
+var hold_piece_type: String = ""          # 暂存的方块类型（用于贴图）
 
 # Next方块数据
 var next_pieces_data: Array = []         # Next方块数据列表 [{shape: Array, color: Color}]
@@ -145,6 +150,10 @@ func _ready():
 	_get_find_controller()
 	_init_board_data()
 	_update_board_position()
+	
+	# 应用当前皮肤（来自SkinManager）
+	if SkinManager:
+		apply_skin(SkinManager.get_current_skin())
 	
 	# 连接窗口大小变化信号
 	get_tree().root.size_changed.connect(_on_window_resized)
@@ -231,14 +240,18 @@ func _init_board_data():
 	
 	board_data.clear()
 	_cell_lock_times.clear()
+	board_piece_types.clear()
 	for y in range(grid_max_height):
 		var row: Array = []
 		var time_row: Array = []
+		var type_row: Array = []
 		for x in range(grid_width):
 			row.append(null)  # null 表示空格子
 			time_row.append(0)  # 0 表示未锁定
+			type_row.append("")  # "" 表示非方块（无贴图）
 		board_data.append(row)
 		_cell_lock_times.append(time_row)
+		board_piece_types.append(type_row)
 
 ## 更新版面位置和大小（自动居中）
 func _update_board_position():
@@ -301,7 +314,7 @@ func _on_window_resized():
 	queue_redraw()
 
 ## 设置某个格子的颜色
-func set_cell_color(x: int, y: int, color):
+func set_cell_color(x: int, y: int, color, piece_type: String = ""):
 	# 如果颜色为null，设置为null表示空格
 	if color == null:
 		color = null
@@ -312,12 +325,19 @@ func set_cell_color(x: int, y: int, color):
 	
 	if _is_valid_position(x, y):
 		board_data[y][x] = color
+		board_piece_types[y][x] = piece_type if color != null else ""
 		# 记录锁定时间（非空格、非垃圾行）
 		if color != null and not _is_garbage_color(color):
 			_cell_lock_times[y][x] = Time.get_ticks_msec()
 		elif color == null:
 			_cell_lock_times[y][x] = 0
 		queue_redraw()  # 请求重绘
+
+## 获取某个格子的方块类型
+func get_cell_piece_type(x: int, y: int) -> String:
+	if _is_valid_position(x, y):
+		return board_piece_types[y][x]
+	return ""
 
 ## 获取某个格子的颜色
 func get_cell_color(x: int, y: int) -> Variant:
@@ -467,6 +487,18 @@ func _draw_grid_lines():
 		var end_pos = Vector2(offset_x + width, offset_y + y * cell_size)
 		draw_line(start_pos, end_pos, grid_line_color, grid_line_width)
 
+## 绘制单个格子（支持贴图皮肤）
+func _draw_cell_rect(x: int, y: int, cell_rect: Rect2, cell_color: Color, alpha: float = 1.0):
+	var tex := _get_piece_texture(board_piece_types[y][x] if y < board_piece_types.size() else "")
+	if tex:
+		var modulate_color := Color(1, 1, 1, alpha)
+		draw_texture_rect(tex, cell_rect, false, modulate_color)
+	else:
+		var draw_color := cell_color
+		draw_color.a = alpha
+		draw_rect(cell_rect, draw_color, true)
+		draw_rect(cell_rect, grid_line_color, false, 1.0)
+
 ## 绘制所有格子（含可见区域上方的出块区域）
 func _draw_cells():
 	# 优先判断：不处于隐形模式 → 全部正常绘制
@@ -477,8 +509,7 @@ func _draw_cells():
 				if cell_color == null:
 					continue
 				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
-				draw_rect(cell_rect, cell_color as Color, true)
-				draw_rect(cell_rect, grid_line_color, false, 1.0)
+				_draw_cell_rect(x, y, cell_rect, cell_color as Color)
 		return
 	
 	# 隐形模式（tetris_invisible == 1）
@@ -493,22 +524,19 @@ func _draw_cells():
 			# 处于显示阶段 → 所有方块正常绘制
 			if _is_visible_mode:
 				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
-				draw_rect(cell_rect, cell_color as Color, true)
-				draw_rect(cell_rect, grid_line_color, false, 1.0)
+				_draw_cell_rect(x, y, cell_rect, cell_color as Color)
 				continue
 			
 			# 隐藏阶段：手上控制的方块始终显示
 			if _is_occupied_by_current_piece(x, y):
 				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
-				draw_rect(cell_rect, cell_color as Color, true)
-				draw_rect(cell_rect, grid_line_color, false, 1.0)
+				_draw_cell_rect(x, y, cell_rect, cell_color as Color)
 				continue
 			
 			# 隐藏阶段：垃圾行始终显示
 			if _is_garbage_color(cell_color as Color):
 				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
-				draw_rect(cell_rect, cell_color as Color, true)
-				draw_rect(cell_rect, grid_line_color, false, 1.0)
+				_draw_cell_rect(x, y, cell_rect, cell_color as Color)
 				continue
 			
 			# 普通已锁定方块 → 渐隐逻辑（落块后的短暂现形）
@@ -518,11 +546,8 @@ func _draw_cells():
 				alpha = clamp(alpha, 0.0, 1.0)
 				if alpha <= 0.0:
 					continue  # 完全消失
-				var draw_color: Color = cell_color as Color
-				draw_color.a = alpha
 				var cell_rect := Rect2(cell_to_world(x, y), Vector2(cell_size, cell_size))
-				draw_rect(cell_rect, draw_color, true)
-				draw_rect(cell_rect, grid_line_color, false, 1.0)
+				_draw_cell_rect(x, y, cell_rect, cell_color as Color, alpha)
 			else:
 				# drop_visible_time == 0：落下即隐形
 				continue
@@ -791,16 +816,30 @@ func _on_big_attack_warning_ended():
 
 # ========== Hold方块显示系统 ==========
 
+## 应用皮肤（设置当前皮肤并重绘）
+func apply_skin(new_skin: TetrisSkin = null):
+	skin = new_skin
+	queue_redraw()
+
+## 获取某个方块类型的贴图（皮肤无此贴图时返回null，回退到纯色）
+func _get_piece_texture(piece_type: String) -> Texture2D:
+	if skin == null or piece_type == "":
+		return null
+	var tex: Texture2D = skin.piece_textures.get(piece_type)
+	return tex if tex != null else null
+
 ## 设置Hold显示的方块
-func set_hold_piece(piece: Array, color: Color):
+func set_hold_piece(piece: Array, color: Color, piece_type: String = ""):
 	hold_piece_data = piece
 	hold_piece_color = color
+	hold_piece_type = piece_type
 	queue_redraw()
 
 ## 清除Hold显示
 func clear_hold_piece():
 	hold_piece_data = []
 	hold_piece_color = Color.WHITE
+	hold_piece_type = ""
 	queue_redraw()
 
 ## 计算Hold框的位置（基于当前cell_size）
@@ -848,7 +887,7 @@ func _draw_hold_display():
 		var draw_area_width = hold_width - padding_x * 2
 		var draw_area_height = hold_height - padding_y * 2
 		
-		_draw_piece_in_area(hold_piece_data, hold_piece_color, 
+		_draw_piece_in_area(hold_piece_data, hold_piece_color, hold_piece_type,
 			draw_area_x, draw_area_y, draw_area_width, draw_area_height)
 
 # ========== Next方块显示系统 ==========
@@ -885,6 +924,7 @@ func _draw_next_display():
 		var piece_data = next_pieces_data[i]
 		var shape = piece_data["shape"]
 		var color = piece_data["color"]
+		var piece_type: String = piece_data.get("type", "")
 		
 		# 计算Next框的位置
 		var next_pos = _get_next_position(i)
@@ -918,7 +958,7 @@ func _draw_next_display():
 			var draw_area_width = next_width - padding_x * 2
 			var draw_area_height = next_height - padding_y * 2
 			
-			_draw_piece_in_area(shape, color, 
+			_draw_piece_in_area(shape, color, piece_type,
 				draw_area_x, draw_area_y, draw_area_width, draw_area_height)
 
 ## 查找版面中最高（y最小）的非空方块（排除正在控制的方块）
@@ -1004,8 +1044,9 @@ func _draw_death_overlay():
 # ========== 通用绘制工具 ==========
 
 ## 在指定区域绘制方块（自动缩放）
-func _draw_piece_in_area(piece: Array, color: Color, area_x: float, area_y: float, 
-	area_width: float, area_height: float):
+func _draw_piece_in_area(piece: Array, color: Color, piece_type: String = "", 
+	area_x: float = 0.0, area_y: float = 0.0, 
+	area_width: float = 0.0, area_height: float = 0.0):
 	
 	# 计算方块的实际尺寸
 	var piece_width = piece[0].size()
@@ -1022,6 +1063,9 @@ func _draw_piece_in_area(piece: Array, color: Color, area_x: float, area_y: floa
 	var start_x = area_x + (area_width - total_width) / 2
 	var start_y = area_y + (area_height - total_height) / 2
 	
+	# 皮肤贴图
+	var tex := _get_piece_texture(piece_type)
+	
 	# 绘制每个方块
 	for y in range(piece_height):
 		for x in range(piece_width):
@@ -1032,9 +1076,12 @@ func _draw_piece_in_area(piece: Array, color: Color, area_x: float, area_y: floa
 					draw_cell_size,
 					draw_cell_size
 				)
-				draw_rect(rect, color, true)
-				# 添加边框
-				draw_rect(rect, Color.WHITE, false, 1.0)
+				if tex:
+					draw_texture_rect(tex, rect, false)
+				else:
+					draw_rect(rect, color, true)
+					# 添加边框
+					draw_rect(rect, Color.WHITE, false, 1.0)
 
 ## 绘制文本标签
 func _draw_label(x: float, y: float, text: String, color: Color, font_size: float):

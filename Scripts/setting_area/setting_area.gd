@@ -23,6 +23,9 @@ class_name SettingArea
 @export var softdrop_slider: HSlider
 @export var softdrop_value_label: Label
 
+# 皮肤选择
+@export var skin_option: OptionButton
+
 # 按钮
 @export var save_button: Button
 @export var reset_button: Button
@@ -82,6 +85,9 @@ func _ready():
 	
 	# 设置滑块样式
 	_setup_slider_styles()
+	
+	# 填充皮肤选项
+	_populate_skin_options()
 
 ## 加载设置
 func _load_settings():
@@ -130,6 +136,10 @@ func _connect_signals():
 		reset_button.pressed.connect(_on_reset_pressed)
 	if back_button:
 		back_button.pressed.connect(_on_back_pressed)
+	
+	# 皮肤选择
+	if skin_option:
+		skin_option.item_selected.connect(_on_skin_selected)
 
 ## 设置滑块样式
 func _setup_slider_styles():
@@ -172,6 +182,36 @@ func _update_key_button(button: Button, action: String):
 		if key_name.is_empty():
 			key_name = "未绑定"
 		button.text = key_name
+
+# ========== 皮肤设置 ==========
+
+## 填充皮肤下拉选项（从SkinManager读取）
+func _populate_skin_options():
+	if not skin_option or not SkinManager:
+		return
+	skin_option.clear()
+	var skins: Array = SkinManager.get_skin_list()
+	for i in range(skins.size()):
+		var skin: TetrisSkin = skins[i]
+		skin_option.add_item(skin.display_name, i)
+	# 选中当前皮肤
+	for i in range(skins.size()):
+		var skin: TetrisSkin = skins[i]
+		if skin.skin_id == SkinManager.current_skin_id:
+			skin_option.selected = i
+			break
+
+## 皮肤选项变更
+func _on_skin_selected(index: int):
+	if not SkinManager:
+		return
+	var skins: Array = SkinManager.get_skin_list()
+	if index < 0 or index >= skins.size():
+		return
+	var skin: TetrisSkin = skins[index]
+	SkinManager.set_skin(skin.skin_id)
+	# 同步到待保存的设置字典
+	current_settings["skin"] = skin.skin_id
 
 # ========== 键位设置 ==========
 
@@ -310,8 +350,13 @@ func _on_reset_pressed():
 	# 应用默认键位到InputMap
 	UserSetting.apply_default_key_bindings()
 	
+	# 应用默认皮肤
+	if SkinManager:
+		SkinManager.set_skin("original")
+	
 	# 更新UI
 	_update_ui()
+	_populate_skin_options()
 	
 	if hint_label:
 		hint_label.text = "已重置为默认设置！"
