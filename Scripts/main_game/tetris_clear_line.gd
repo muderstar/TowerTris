@@ -10,6 +10,7 @@ class_name TetrisClearLine
 @export var garbage_line_controller: TetrisGarbageLineController
 @export var tower_controller: TowerController
 @export var text_printer: TextPrinter  # 文本打印器节点（用于显示消行/Spin/连击/BTB文本）
+@export var effect_manager: EffectManager  # 特效管理器（碎片/圆环/数字弹出）
 
 # 消行配置
 @export var clear_animation_duration: float = 0.3  # 消行动画持续时间（秒）
@@ -46,6 +47,11 @@ class_name TetrisClearLine
 @export var btb_text_color: Color = Color.MAGENTA  # BTB文本颜色
 @export var btb_text_outline_color: Color = Color.BLACK  # BTB文本描边颜色
 @export var btb_text_offset_y_cells: float = 4.5  # BTB文本相对于Hold框底部的偏移（格子数，正值向下）
+
+# BTB蓄力（Charge）配置（仿 TETR.IO b2bcharging）
+@export var btb_charge_at: int = 4       # 达到该BTB计数后进入"蓄满"状态
+@export var btb_charge_color: Color = Color.GOLD   # 蓄满时文本/特效颜色
+@export var btb_charge_release_mult: int = 0       # 释放时额外伤害加成（0=不额外加伤害，仅特效）
 
 # PC（Perfect Clear）配置
 @export var pc_text_color: Color = Color.GOLD  # PC文本颜色
@@ -224,6 +230,10 @@ func _ready():
 	if not text_printer:
 		text_printer = get_node_or_null("../TextPrinter")
 	
+	# 自动查找effect_manager（如果未设置）
+	if not effect_manager:
+		effect_manager = get_node_or_null("../EffectManager")
+	
 	# 创建伤害计时器
 	damage_timer = Timer.new()
 	damage_timer.wait_time = damage_display_duration
@@ -281,10 +291,16 @@ func _add_damage_to_display(damage: int):
 	damage_text_position = Vector2(_get_text_anchor_x(), bottom_y + offset_y)
 	
 	if text_printer:
-		# damage 文本固定显示：不漂移、不淡出，常驻直到计时器结束再移除
+		# 攻击数字：弹出放大，向上/向左飘移，几秒后淡出消失
 		text_printer.show_text("damage", "%d Attack" % accumulated_damage, damage_text_position,
 			damage_text_color, damage_text_outline_color, board_drawer.cell_size * 0.9,
-			true, 1.0)
+			false, 1.0, damage_display_duration, 1.4,
+			Vector2(-board_drawer.cell_size * 0.4, -board_drawer.cell_size * 0.5),
+			HORIZONTAL_ALIGNMENT_RIGHT, true, 0.3)
+	
+	# 攻击冲击波圆环特效
+	if effect_manager:
+		effect_manager.spawn_ring(damage_text_position, damage_text_color, board_drawer.cell_size * 3.5, 0.45)
 	
 	# 重置计时器（如果正在运行则停止并重新开始）
 	if damage_timer.is_stopped():
@@ -429,11 +445,62 @@ func _update_btb(is_spin_or_quad: bool):
 			btb_count = 1
 		_update_btb_text()
 	else:
+		var was_charged: bool = btb_count >= btb_charge_at
+		var released_amount: int = btb_count
 		btb_count = 0
 		is_btb_active = false
 		if text_printer:
 			text_printer.remove_text("btb")
+		if effect_manager:
+			effect_manager.clear_b2b_badge()
+		# 蓄满后断开 → 电荷释放特效（仅 TETR.IO 皮肤）
+		if was_charged and _tetrio_skin():
+			_btb_charge_release(released_amount)
 		board_drawer.queue_redraw()
+
+## BTB蓄力指示：随BTB计数填充圆点，蓄满后显示 CHARGED
+## 仅 TETR.IO 皮肤显示（b2bcharging 特效）；其他皮肤保持原有 N x BTB 文本
+func _update_btb_charge_text():
+	if not is_btb_active:
+		return
+	if not _tetrio_skin():
+		return
+	var cell: float = board_drawer.cell_size
+	if not effect_manager:
+		return
+	if btb_count >= btb_charge_at:
+		# 六边形徽章 + 蓄力数字（替换文字圆点）
+		# 徽章位于 BTB 文本左侧（同 TETR.IO：badge 在 "B2B X" 文字左边）
+		var anchor_x: float = _get_text_anchor_x()
+		var text_width: float = 0.0
+		var font := ThemeDB.fallback_font
+		var txt := text_printer.get_text("btb") if text_printer else ""
+		if not txt.is_empty():
+			text_width = font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(cell)).x
+		var badge_pos: Vector2 = Vector2(anchor_x - text_width - cell * 0.8, _get_text_base_y() + (btb_text_offset_y_cells + 0.9) * cell)
+		effect_manager.set_b2b_badge(badge_pos, btb_count, btb_charge_at, cell)
+	else:
+		effect_manager.clear_b2b_badge()
+
+## 当前是否使用 TETR.IO 皮肤（决定是否启用 b2b 蓄力特效）
+func _tetrio_skin() -> bool:
+	return SkinManager != null and SkinManager.current_skin_id == "tetrio"
+
+## BTB电荷释放：蓄满的BTB断开时，碎片爆发+冲击波+文字
+func _btb_charge_release(amount: int):
+	var cell: float = board_drawer.cell_size if board_drawer else 24.0
+	var pos: Vector2 = btb_text_position + Vector2(0, -cell * 0.5)
+	if effect_manager:
+		effect_manager.spawn_shards(pos, btb_charge_color, 26, 340.0)
+		effect_manager.spawn_ring(pos, btb_charge_color, cell * 6.0, 0.6)
+	if text_printer:
+		text_printer.show_text("btbrelease", "CHARGE RELEASE +%d" % amount, pos,
+			btb_charge_color, btb_text_outline_color, cell * 1.0, false, 1.0, 1.3, 1.3,
+			Vector2(0, -cell * 0.6), HORIZONTAL_ALIGNMENT_RIGHT, true, 0.4)
+	if AudioManager:
+		AudioManager.play("btb_break")
+		AudioManager.play("garbagesmash")
+	board_drawer.queue_redraw()
 
 ## 更新BTB文本（常驻显示，不随消行淡出）
 func _update_btb_text():
@@ -450,8 +517,11 @@ func _update_btb_text():
 		text_printer.show_text("btb", btb_text, btb_text_position,
 			btb_text_color, btb_text_outline_color, board_drawer.cell_size * 1.0,
 			true, 1.0)
+		_update_btb_charge_text()
 	else:
 		text_printer.remove_text("btb")
+		if effect_manager:
+			effect_manager.clear_b2b_badge()
 
 ## 检查是否 Perfect Clear（场上没有任何方块）
 func _check_perfect_clear() -> bool:
@@ -472,7 +542,8 @@ func _show_pc_text():
 	pc_text_position = Vector2(_get_text_anchor_x(), bottom_y + pc_offset_y)
 	text_printer.show_text("pc", "PERFECT CLEAR", pc_text_position,
 		pc_text_color, pc_text_outline_color, board_drawer.cell_size * 1.2,
-		false, text_base_opacity, clear_text_display_duration, text_fade_duration, _get_text_drift())
+		false, text_base_opacity, clear_text_display_duration, text_fade_duration, _get_text_drift(),
+		HORIZONTAL_ALIGNMENT_RIGHT, true, 0.4)
 
 ## 计算攻击伤害
 func _calculate_damage(clear_count: int, spin_type: String) -> int:
@@ -672,6 +743,15 @@ func _clear_lines(lines: Array):
 	
 	lines.sort()
 	
+	# 消行碎片特效：在每一格位置飞溅对应颜色的小方块
+	if effect_manager:
+		for y: int in lines:
+			for x in range(board_drawer.grid_width):
+				var cell_color: Variant = board_drawer.get_cell_color(x, y)
+				if cell_color != null and typeof(cell_color) == TYPE_COLOR:
+					var world_pos: Vector2 = board_drawer.cell_to_world(x, y) + Vector2(board_drawer.cell_size, board_drawer.cell_size) * 0.5
+					effect_manager.spawn_shards(world_pos, cell_color as Color, 1, 190.0)
+	
 	for y in lines:
 		_clear_single_line(y)
 	
@@ -816,14 +896,16 @@ func _show_clear_and_spin_text(clear_count: int, spin_type: String, _damage: int
 	clear_text_position = Vector2(anchor_x, bottom_y + offset_y)
 	text_printer.show_text("clear", clear_text, clear_text_position,
 		clear_text_color, clear_text_outline_color, cell * 1.0,
-		false, text_base_opacity, clear_spin_hold, clear_spin_fade, clear_spin_drift)
+		false, text_base_opacity, clear_spin_hold, clear_spin_fade, clear_spin_drift,
+		HORIZONTAL_ALIGNMENT_RIGHT, true, 0.3)
 	
 	if not spin_type.is_empty():
 		var spin_offset_y = (clear_text_offset_y_cells - spin_text_offset_y_cells) * cell
 		spin_text_position = Vector2(anchor_x, bottom_y + spin_offset_y)
 		text_printer.show_text("spin", spin_type, spin_text_position,
 			display_spin_color, spin_text_outline_color, cell * 0.8,
-			false, text_base_opacity, clear_spin_hold, clear_spin_fade, clear_spin_drift)
+			false, text_base_opacity, clear_spin_hold, clear_spin_fade, clear_spin_drift,
+			HORIZONTAL_ALIGNMENT_RIGHT, true, 0.3)
 	else:
 		text_printer.remove_text("spin")
 	
@@ -835,7 +917,8 @@ func _show_clear_and_spin_text(clear_count: int, spin_type: String, _damage: int
 		text_printer.remove_text("combo")
 		text_printer.show_text("combo", combo_text, combo_text_position,
 			combo_text_color, combo_text_outline_color, cell * 0.8,
-			false, text_base_opacity, clear_text_display_duration, text_fade_duration, _get_text_drift())
+			false, text_base_opacity, clear_text_display_duration, text_fade_duration, _get_text_drift(),
+			HORIZONTAL_ALIGNMENT_RIGHT, true, 0.3)
 	else:
 		text_printer.remove_text("combo")
 	
@@ -870,7 +953,8 @@ func _show_spin_text_only(spin_type: String):
 	var clear_spin_hold: float = clear_text_display_duration * clear_spin_hold_scale
 	text_printer.show_text("spin", spin_type, spin_text_position,
 		display_spin_color, spin_text_outline_color, cell * 0.8,
-		false, text_base_opacity, clear_spin_hold, clear_spin_fade, clear_spin_drift)
+		false, text_base_opacity, clear_spin_hold, clear_spin_fade, clear_spin_drift,
+		HORIZONTAL_ALIGNMENT_RIGHT, true, 0.3)
 	# 不重置其他文本，让它们自然淡出
 
 ## 获取当前显示的Spin文本颜色
@@ -893,6 +977,8 @@ func reset():
 	is_animating = false
 	if text_printer:
 		text_printer.clear_all()
+	if effect_manager:
+		effect_manager.clear_all()
 	damage_timer.stop()
 	reset_rotation_record()
 	combo_count = 0

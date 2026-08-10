@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://1rqswyci2p50" path="res://Scripts/main_game/tower_controller.gd" id="6_7iclg"]
 [ext_resource type="Script" uid="uid://cix84cmt6nee6" path="res://Scripts/main_game/fps_display.gd" id="7_et6fd"]
 [ext_resource type="Script" uid="uid://csm65d5mycwnu" path="res://Scripts/main_game/text_printer.gd" id="8_tprnt"]
+[ext_resource type="Script" uid="uid://bfx12m3e" path="res://Scripts/main_game/effect_manager.gd" id="9_effm"]
 
 [node name="Tetris" type="Node2D" unique_id=1813233852]
 
@@ -50,6 +51,9 @@ script = ExtResource("7_et6fd")
 
 [node name="TextPrinter" type="Node2D" parent="MainBoard" unique_id=1907623470]
 script = ExtResource("8_tprnt")
+
+[node name="EffectManager" type="Node2D" parent="MainBoard" unique_id=1907623471]
+script = ExtResource("9_effm")
 
 [node name="TowerController" type="Node2D" parent="." unique_id=154904659 node_paths=PackedStringArray("tetris_controller", "garbage_line_controller", "board_drawer", "clear_line_controller")]
 unique_name_in_owner = true

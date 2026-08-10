@@ -26,10 +26,17 @@ class TextEntry:
 	var fade_elapsed: float = 0.0      # 已淡出时间
 	var drift: Vector2 = Vector2.ZERO  # 漂移速度（像素/秒，向左为负X）
 	var alignment: int = HORIZONTAL_ALIGNMENT_RIGHT
+	var pop_scale: float = 1.0         # 当前缩放（pop 动画用，作用于字号）
+	var pop_elapsed: float = -1.0      # pop 动画已进行时间（-1 = 无动画）
+	var pop_duration: float = 0.3      # pop 动画时长（秒）
+	var pulse: bool = false            # 常驻文本是否周期脉冲（作用于缩放/透明度）
 
 
 ## key -> Array[TextEntry]
 var _entries: Dictionary = {}
+
+## pop 动画关键帧：缩放（0 起步，略过冲后回到 1.0）
+const POP_OVERSHOOT: float = 0.35
 
 ## 漂移减速速率（/秒）：初始速度快，随时间指数衰减，最终停下
 const DRIFT_DECEL_PER_SEC: float = 0.9
@@ -56,6 +63,9 @@ const OUTLINE_OFFSETS: Array = [
 ##   fade_duration  淡出时长（秒）
 ##   drift          漂移速度（像素/秒）
 ##   alignment      文本对齐方式（相对 position 的锚点）
+##   pop            是否为弹出动画（放大过冲后回落到1.0）
+##   pop_duration   pop动画时长（秒）
+##   pulse          常驻文本周期脉冲（发光/呼吸效果）
 func show_text(
 	key: String,
 	text: String,
@@ -68,7 +78,10 @@ func show_text(
 	display_duration: float = 1.0,
 	fade_duration: float = 0.8,
 	drift: Vector2 = Vector2.ZERO,
-	alignment: int = HORIZONTAL_ALIGNMENT_RIGHT
+	alignment: int = HORIZONTAL_ALIGNMENT_RIGHT,
+	pop: bool = false,
+	pop_duration: float = 0.3,
+	pulse: bool = false
 ) -> void:
 	var list = _entries.get(key)
 	var entry: TextEntry
@@ -76,11 +89,13 @@ func show_text(
 		# 持久文本：更新已有的最新一条，不叠加
 		entry = list[0]
 		_fill_entry(entry, key, text, pos, color, outline_color, font_size,
-			persistent, opacity, display_duration, fade_duration, drift, alignment)
+			persistent, opacity, display_duration, fade_duration, drift, alignment,
+			pop, pop_duration, pulse)
 	else:
 		entry = TextEntry.new()
 		_fill_entry(entry, key, text, pos, color, outline_color, font_size,
-			persistent, opacity, display_duration, fade_duration, drift, alignment)
+			persistent, opacity, display_duration, fade_duration, drift, alignment,
+			pop, pop_duration, pulse)
 		# 叠加：多条非持久文本在原位叠加显示（不向下错开，各自独立淡出）
 		if list == null:
 			list = []
@@ -102,7 +117,10 @@ func _fill_entry(
 	display_duration: float,
 	fade_duration: float,
 	drift: Vector2,
-	alignment: int
+	alignment: int,
+	pop: bool = false,
+	pop_duration: float = 0.3,
+	pulse: bool = false
 ) -> void:
 	entry.key = key
 	entry.text = text
@@ -119,6 +137,14 @@ func _fill_entry(
 	entry.alignment = alignment
 	entry.elapsed = 0.0
 	entry.fade_elapsed = 0.0
+	entry.pulse = pulse
+	entry.pop_duration = pop_duration
+	if pop:
+		entry.pop_scale = 0.4
+		entry.pop_elapsed = 0.0
+	else:
+		entry.pop_scale = 1.0
+		entry.pop_elapsed = -1.0
 
 
 ## 更新指定 key 的文本内容（影响该 key 的所有条目，不影响位置与生命周期）
@@ -188,6 +214,13 @@ func clear_all() -> void:
 	_entries.clear()
 	queue_redraw()
 
+## easeOutBack 缓动（过冲）
+func _ease_out_back(t: float) -> float:
+	var c1: float = 1.70158
+	var c3: float = c1 + 1.0
+	var u: float = t - 1.0
+	return 1.0 + c3 * u * u * u + c1 * u * u
+
 
 ## 是否存在指定 key 的文本
 func has_text(key: String) -> bool:
@@ -211,6 +244,18 @@ func _process(delta: float) -> void:
 		var list: Array = _entries[key]
 		var remaining: Array = []
 		for entry: TextEntry in list:
+			# pop 动画：任何文本（含常驻）都独立推进
+			if entry.pop_elapsed >= 0.0:
+				entry.pop_elapsed += delta
+				var pt: float = 1.0
+				if entry.pop_duration > 0.0:
+					pt = clampf(entry.pop_elapsed / entry.pop_duration, 0.0, 1.0)
+				if pt >= 1.0:
+					entry.pop_scale = 1.0
+					entry.pop_elapsed = -1.0
+				else:
+					# 0.4 -> 1.0，带过冲
+					entry.pop_scale = 0.4 + (1.0 + POP_OVERSHOOT - 0.4) * _ease_out_back(pt)
 			if entry.persistent:
 				remaining.append(entry)
 				continue
@@ -244,7 +289,11 @@ func _draw() -> void:
 		for entry: TextEntry in list:
 			if entry.text.is_empty() or entry.opacity <= 0.0:
 				continue
-			var font_size_int: int = maxi(1, roundi(entry.font_size))
+			# 常驻文本脉冲：轻微呼吸缩放（发光感）
+			var scale: float = entry.pop_scale
+			if entry.persistent and entry.pulse:
+				scale *= 1.0 + 0.06 * sin(Time.get_ticks_msec() * 0.012)
+			var font_size_int: int = maxi(1, roundi(entry.font_size * scale))
 			var draw_pos: Vector2 = entry.position
 			if entry.alignment == HORIZONTAL_ALIGNMENT_RIGHT:
 				var text_size: Vector2 = font.get_string_size(entry.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_int)
