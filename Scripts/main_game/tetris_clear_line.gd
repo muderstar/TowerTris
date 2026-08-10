@@ -647,8 +647,7 @@ func _clear_lines(lines: Array):
 func _clear_single_line(line_y: int):
 	for y in range(line_y, 0, -1):
 		for x in range(board_drawer.grid_width):
-			var color = board_drawer.get_cell_color(x, y - 1)
-			board_drawer.set_cell_color(x, y, color)
+			board_drawer.copy_cell(x, y - 1, x, y)
 	
 	for x in range(board_drawer.grid_width):
 		board_drawer.set_cell_color(x, 0, null)

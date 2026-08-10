@@ -4,7 +4,7 @@
 
 [node name="setting_area" type="Node2D" unique_id=687338970]
 
-[node name="SettingArea" type="Control" parent="." unique_id=961848419 node_paths=PackedStringArray("key_left_button", "key_right_button", "key_soft_drop_button", "key_hard_drop_button", "key_left_spin_button", "key_right_spin_button", "key_swap_spin_button", "key_hold_button", "das_slider", "das_value_label", "arr_slider", "arr_value_label", "softdrop_slider", "softdrop_value_label", "skin_option", "save_button", "reset_button", "back_button", "hint_label")]
+[node name="SettingArea" type="Control" parent="." unique_id=961848419 node_paths=PackedStringArray("key_left_button", "key_right_button", "key_soft_drop_button", "key_hard_drop_button", "key_left_spin_button", "key_right_spin_button", "key_swap_spin_button", "key_hold_button", "das_slider", "das_value_label", "arr_slider", "arr_value_label", "softdrop_slider", "softdrop_value_label", "skin_option", "grid_opacity_slider", "grid_opacity_value_label", "save_button", "reset_button", "back_button", "hint_label")]
 layout_mode = 3
 anchors_preset = 0
 offset_right = 40.0
@@ -25,6 +25,8 @@ arr_value_label = NodePath("Panel/SpeedSetting/ARRRow/arr_value_label")
 softdrop_slider = NodePath("Panel/SpeedSetting/SoftDropRow/softdrop_slider")
 softdrop_value_label = NodePath("Panel/SpeedSetting/SoftDropRow/softdrop_value_label")
 skin_option = NodePath("Panel/SkinSetting/SkinRow/skin_option")
+grid_opacity_slider = NodePath("Panel/SkinSetting/GridRow/grid_opacity_slider")
+grid_opacity_value_label = NodePath("Panel/SkinSetting/GridRow/grid_opacity_value_label")
 save_button = NodePath("Panel/Buttons/save_button")
 reset_button = NodePath("Panel/Buttons/reset_button")
 back_button = NodePath("Panel/Buttons/back_button")
@@ -194,7 +196,7 @@ layout_mode = 0
 offset_left = 337.0
 offset_top = 160.0
 offset_right = 567.0
-offset_bottom = 195.0
+offset_bottom = 245.0
 
 [node name="SkinRow" type="HBoxContainer" parent="SettingArea/Panel/SkinSetting"]
 
@@ -206,19 +208,36 @@ text = "Skin"
 layout_mode = 2
 custom_minimum_size = Vector2(160, 0)
 
+[node name="GridRow" type="HBoxContainer" parent="SettingArea/Panel/SkinSetting"]
+
+[node name="Label" type="Label" parent="SettingArea/Panel/SkinSetting/GridRow"]
+layout_mode = 2
+text = "Grid"
+
+[node name="grid_opacity_slider" type="HSlider" parent="SettingArea/Panel/SkinSetting/GridRow"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+value = 100.0
+
+[node name="grid_opacity_value_label" type="Label" parent="SettingArea/Panel/SkinSetting/GridRow"]
+layout_mode = 2
+
 [node name="hint_label" type="Label" parent="SettingArea/Panel" unique_id=1549985471]
 layout_mode = 0
 offset_left = 339.0
-offset_top = 199.0
+offset_top = 250.0
 offset_right = 379.0
-offset_bottom = 222.0
+offset_bottom = 273.0
 
 [node name="Buttons" type="HBoxContainer" parent="SettingArea/Panel" unique_id=1728242645]
 layout_mode = 0
 offset_left = 339.0
-offset_top = 225.0
+offset_top = 278.0
 offset_right = 379.0
-offset_bottom = 265.0
+offset_bottom = 318.0
 
 [node name="save_button" type="Button" parent="SettingArea/Panel/Buttons" unique_id=632133025]
 layout_mode = 2

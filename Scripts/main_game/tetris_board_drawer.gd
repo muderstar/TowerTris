@@ -27,6 +27,7 @@ class_name TetrisBoardDrawer
 @export var background_color: Color = Color(0, 0, 0, 1.0)     # 背景色
 @export var grid_line_color: Color = Color(0.399, 0.399, 0.399, 1.0)      # 网格线颜色
 @export var grid_line_width: float = 1.0              # 网格线宽度
+@export var grid_opacity: float = 1.0                 # 网格线透明度（0-1）
 @export var board_border_color: Color = Color.WHITE   # 版面左右边缘边框颜色
 @export var board_border_width: float = 2.0           # 版面左右边缘边框宽度
 
@@ -154,6 +155,10 @@ func _ready():
 	# 应用当前皮肤（来自SkinManager）
 	if SkinManager:
 		apply_skin(SkinManager.get_current_skin())
+	
+	# 应用网格线透明度（来自用户设置）
+	var _settings: Dictionary = UserSetting.load_settings()
+	grid_opacity = float(_settings.get("grid_opacity", 1.0))
 	
 	# 连接窗口大小变化信号
 	get_tree().root.size_changed.connect(_on_window_resized)
@@ -339,6 +344,12 @@ func get_cell_piece_type(x: int, y: int) -> String:
 		return board_piece_types[y][x]
 	return ""
 
+## 复制源格子的颜色和方块类型到目标格子（保留贴图类型）
+func copy_cell(from_x: int, from_y: int, to_x: int, to_y: int):
+	var color = get_cell_color(from_x, from_y)
+	var piece_type = get_cell_piece_type(from_x, from_y)
+	set_cell_color(to_x, to_y, color, piece_type)
+
 ## 获取某个格子的颜色
 func get_cell_color(x: int, y: int) -> Variant:
 	if _is_valid_position(x, y):
@@ -472,6 +483,10 @@ func _draw_grid_lines():
 	if not show_grid_lines:
 		return
 	
+	# 应用网格线透明度
+	var line_color: Color = grid_line_color
+	line_color.a = grid_line_color.a * grid_opacity
+	
 	var width = grid_width * cell_size
 	var height = grid_height * cell_size  # 只绘制可见高度
 	
@@ -479,13 +494,13 @@ func _draw_grid_lines():
 	for x in range(1, grid_width):
 		var start_pos = Vector2(offset_x + x * cell_size, offset_y)
 		var end_pos = Vector2(offset_x + x * cell_size, offset_y + height)
-		draw_line(start_pos, end_pos, grid_line_color, grid_line_width)
+		draw_line(start_pos, end_pos, line_color, grid_line_width)
 	
 	# 绘制水平线（只绘制可见高度，跳过y=0和y=grid_height）
 	for y in range(1, grid_height):
 		var start_pos = Vector2(offset_x, offset_y + y * cell_size)
 		var end_pos = Vector2(offset_x + width, offset_y + y * cell_size)
-		draw_line(start_pos, end_pos, grid_line_color, grid_line_width)
+		draw_line(start_pos, end_pos, line_color, grid_line_width)
 
 ## 绘制单个格子（支持贴图皮肤）
 func _draw_cell_rect(x: int, y: int, cell_rect: Rect2, cell_color: Color, alpha: float = 1.0):
@@ -1043,32 +1058,44 @@ func _draw_death_overlay():
 
 # ========== 通用绘制工具 ==========
 
-## 在指定区域绘制方块（自动缩放）
+## 在指定区域绘制方块（自动缩放，所有方块统一格子大小）
 func _draw_piece_in_area(piece: Array, color: Color, piece_type: String = "", 
 	area_x: float = 0.0, area_y: float = 0.0, 
 	area_width: float = 0.0, area_height: float = 0.0):
 	
-	# 计算方块的实际尺寸
-	var piece_width = piece[0].size()
-	var piece_height = piece.size()
+	# 计算方块内容的实际包围盒（去掉周围空行/空列）
+	var min_x: int = 999
+	var min_y: int = 999
+	var max_x: int = -1
+	var max_y: int = -1
+	for y in range(piece.size()):
+		for x in range(piece[y].size()):
+			if piece[y][x] == 1:
+				if x < min_x: min_x = x
+				if x > max_x: max_x = x
+				if y < min_y: min_y = y
+				if y > max_y: max_y = y
+	if max_x < 0:
+		return
 	
-	# 计算适合区域的最大格子大小
-	var cell_size_x = area_width / piece_width
-	var cell_size_y = area_height / piece_height
-	var draw_cell_size = min(cell_size_x, cell_size_y)
+	var piece_width = max_x - min_x + 1
+	var piece_height = max_y - min_y + 1
 	
-	# 计算居中偏移
+	# 统一使用 4x2 参考包围盒计算格子大小，保证所有方块同尺寸
+	var draw_cell_size = min(area_width / 4.0, area_height / 2.0)
+	
+	# 计算居中偏移（基于实际内容包围盒）
 	var total_width = piece_width * draw_cell_size
 	var total_height = piece_height * draw_cell_size
-	var start_x = area_x + (area_width - total_width) / 2
-	var start_y = area_y + (area_height - total_height) / 2
+	var start_x = area_x + (area_width - total_width) / 2 - min_x * draw_cell_size
+	var start_y = area_y + (area_height - total_height) / 2 - min_y * draw_cell_size
 	
 	# 皮肤贴图
 	var tex := _get_piece_texture(piece_type)
 	
 	# 绘制每个方块
-	for y in range(piece_height):
-		for x in range(piece_width):
+	for y in range(min_y, max_y + 1):
+		for x in range(min_x, max_x + 1):
 			if piece[y][x] == 1:
 				var rect = Rect2(
 					start_x + x * draw_cell_size,

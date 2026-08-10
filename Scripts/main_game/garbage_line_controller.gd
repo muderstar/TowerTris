@@ -236,35 +236,48 @@ func force_raise_rows(row_count: int, row_generator: Callable, skip_piece_handli
 	
 	# 收集当前版面所有数据
 	var board_data = []
+	var board_types = []
 	for y in range(board_drawer.get_playable_height()):
 		var row = []
+		var type_row = []
 		for x in range(board_drawer.grid_width):
 			row.append(board_drawer.get_cell_color(x, y))
+			type_row.append(board_drawer.get_cell_piece_type(x, y))
 		board_data.append(row)
+		board_types.append(type_row)
 	
 	# 计算需要上移的行数
 	var shift_amount = row_count
 	
 	# 创建新版面数据
 	var new_board_data = []
+	var new_board_types = []
 	
 	# 上移原有方块（保留顶部内容，底部被挤出）
 	for y in range(board_drawer.get_playable_height() - shift_amount):
 		var row_data = []
+		var type_row_data = []
 		var source_y = y + shift_amount
 		if source_y < board_data.size():
 			for x in range(board_drawer.grid_width):
 				row_data.append(board_data[source_y][x])
+				type_row_data.append(board_types[source_y][x])
 		else:
 			for x in range(board_drawer.grid_width):
 				row_data.append(null)
+				type_row_data.append("")
 		new_board_data.append(row_data)
+		new_board_types.append(type_row_data)
 	
 	# 添加新行到底部
 	var added_rows = []
 	for i in range(row_count):
 		var row_data = row_generator.call(i, row_count)
+		var type_row_data = []
+		for x in range(board_drawer.grid_width):
+			type_row_data.append("")
 		new_board_data.append(row_data)
+		new_board_types.append(type_row_data)
 		added_rows.append(board_drawer.get_playable_height() - row_count + i)
 	
 	# 清空版面
@@ -277,8 +290,11 @@ func force_raise_rows(row_count: int, row_generator: Callable, skip_piece_handli
 		for x in range(board_drawer.grid_width):
 			if y < new_board_data.size() and x < new_board_data[y].size():
 				var color = new_board_data[y][x]
+				var piece_type = ""
+				if y < new_board_types.size() and x < new_board_types[y].size():
+					piece_type = new_board_types[y][x]
 				if color != null:
-					board_drawer.set_cell_color(x, y, color)
+					board_drawer.set_cell_color(x, y, color, piece_type)
 	
 	# 检查是否有任何非空方块超过第50行（y < 50，高于第50行即触发游戏结束）
 	# 隐藏区域共70行（0-69），第0-49行为禁止区，第50-69行为安全缓冲

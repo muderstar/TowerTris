@@ -26,6 +26,10 @@ class_name SettingArea
 # 皮肤选择
 @export var skin_option: OptionButton
 
+# 网格透明度
+@export var grid_opacity_slider: HSlider
+@export var grid_opacity_value_label: Label
+
 # 按钮
 @export var save_button: Button
 @export var reset_button: Button
@@ -140,6 +144,10 @@ func _connect_signals():
 	# 皮肤选择
 	if skin_option:
 		skin_option.item_selected.connect(_on_skin_selected)
+	
+	# 网格透明度
+	if grid_opacity_slider:
+		grid_opacity_slider.value_changed.connect(_on_grid_opacity_changed)
 
 ## 设置滑块样式
 func _setup_slider_styles():
@@ -174,6 +182,12 @@ func _update_ui():
 		softdrop_slider.value = current_settings.get("softdrop_delay", 0.1) * 100
 	if softdrop_value_label:
 		softdrop_value_label.text = "%.3fs" % current_settings.get("softdrop_delay", 0.1)
+	
+	# 网格线透明度（0-1 → 0-100）
+	if grid_opacity_slider:
+		grid_opacity_slider.value = current_settings.get("grid_opacity", 1.0) * 100
+	if grid_opacity_value_label:
+		grid_opacity_value_label.text = "%d%%" % int(current_settings.get("grid_opacity", 1.0) * 100)
 
 ## 更新单个键位按钮
 func _update_key_button(button: Button, action: String):
@@ -212,6 +226,14 @@ func _on_skin_selected(index: int):
 	SkinManager.set_skin(skin.skin_id)
 	# 同步到待保存的设置字典
 	current_settings["skin"] = skin.skin_id
+
+# ========== 网格透明度设置 ==========
+
+## 网格透明度变更（value 0-100 → 0-1）
+func _on_grid_opacity_changed(value: float):
+	current_settings["grid_opacity"] = value / 100.0
+	if grid_opacity_value_label:
+		grid_opacity_value_label.text = "%d%%" % int(value)
 
 # ========== 键位设置 ==========
 

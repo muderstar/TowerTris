@@ -49,7 +49,9 @@ static func get_default_settings() -> Dictionary:
 		"move_arr": 0.0,
 		"softdrop_delay": 0.1,
 		# 皮肤设置
-		"skin": "original"
+		"skin": "original",
+		# 网格线透明度（0-1）
+		"grid_opacity": 1.0
 	}
 
 ## 动作名称列表
