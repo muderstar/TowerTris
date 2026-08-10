@@ -562,6 +562,11 @@ func _game_over(reason: String = "Game Over"):
 	# 停止接受输入
 	set_process(false)
 	
+	# 播放游戏结束音效
+	if AudioManager:
+		AudioManager.stop_all()
+		AudioManager.play("gameover")
+	
 	# 收集最终统计数据
 	var stats = get_stats()
 	
@@ -675,6 +680,10 @@ func _try_move(delta_x: int, delta_y: int) -> bool:
 		current_position = new_pos
 		_draw_current_piece()
 		
+		# 播放移动音效（仅横向移动，避免软降/重力持续触发）
+		if delta_x != 0 and AudioManager:
+			AudioManager.play("move")
+		
 		_check_underground_touch()
 		# 移动后重置锁延
 		if lock_times_limit > 0 and not lock_timer.is_stopped():
@@ -703,6 +712,9 @@ func _force_lock_piece():
 	if cleared == 0 and garbage_line_controller:
 		garbage_line_controller.process_garbage_after_lock()
 	
+	if cleared == 0 and AudioManager:
+		AudioManager.play("boardlock")
+	
 	spawn_new_piece()
 
 func _lock_piece():
@@ -712,6 +724,9 @@ func _lock_piece():
 	# 只有在没有消行的情况下才触发垃圾行增长
 	if cleared == 0 and garbage_line_controller:
 		garbage_line_controller.process_garbage_after_lock()
+	
+	if cleared == 0 and AudioManager:
+		AudioManager.play("boardlock")
 	
 	spawn_new_piece()
 
@@ -825,6 +840,10 @@ func _apply_rotation_with_kick(rotated_piece: Array, direction: int):
 			current_position = new_pos
 			_draw_current_piece()
 			
+			# 播放旋转音效
+			if AudioManager:
+				AudioManager.play("rotate")
+			
 			# 记录旋转事件（用于Spin检测），传递方块颜色
 			if clear_line_controller:
 				clear_line_controller.record_rotation(current_piece_type, current_piece, current_position, current_color)
@@ -882,6 +901,10 @@ func hold_current_piece():
 		return false  # NoHold模式：禁用暂存
 	if not can_hold:
 		return false  # 本回合已使用过暂存
+	
+	# 播放暂存音效
+	if AudioManager:
+		AudioManager.play("hold")
 	
 	# 清除当前方块
 	_clear_current_piece()
@@ -1004,7 +1027,9 @@ func move_right():
 
 ## 软降（单步向下）
 func soft_drop():
-	_try_move(0, 1)
+	if _try_move(0, 1):
+		if AudioManager:
+			AudioManager.play("softdrop")
 
 ## 软降到底（不锁定）：bot 路径中的 "soft_drop" 动作（ColdClear SonicDrop）使用本方法，
 ## 对应将当前方块一直下落到触底位置，但不像 hard_drop 那样立即锁定，等待后续 hard_drop 锁定。
@@ -1023,6 +1048,8 @@ func hard_drop():
 		print("[BotLock] piece=", current_piece_type, " final=(", current_position.x, ",", current_position.y, ")")
 	
 	# 触底后立即锁定
+	if AudioManager:
+		AudioManager.play("harddrop")
 	_force_lock_piece()
 
 # ========== 更新循环 ==========

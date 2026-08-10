@@ -344,6 +344,15 @@ func check_and_clear_lines() -> int:
 	if is_spin:
 		is_spin_or_quad = true
 	
+	# 播放消行音效
+	if AudioManager:
+		if is_quad:
+			AudioManager.play("clearquad")
+		elif is_spin:
+			AudioManager.play("clearspin")
+		else:
+			AudioManager.play("clearline")
+	
 	_clear_lines(lines_to_clear)
 	
 	var damage = _calculate_damage(clear_count, spin_type)
@@ -353,6 +362,9 @@ func check_and_clear_lines() -> int:
 	if is_perfect_clear:
 		damage += pc_damage  # PC额外伤害叠加
 		_show_pc_text()
+		# 播放全消音效
+		if AudioManager:
+			AudioManager.play("allclear")
 	elif text_printer:
 		text_printer.remove_text("pc")
 	
@@ -360,6 +372,27 @@ func check_and_clear_lines() -> int:
 	tower_controller.attack_increase_tower(damage)
 	
 	_update_btb(is_spin_or_quad)
+	
+	# 连击/BTB音效
+	if AudioManager:
+		var combo_played = false
+		if combo_count > 0:
+			# combo_count 为本次消行前的连击数（下方才+1）
+			var combo_index = combo_count
+			if combo_index >= 16:
+				AudioManager.play("combo_16")
+				combo_played = true
+			elif combo_index >= 8:
+				AudioManager.play("combo_8")
+				combo_played = true
+			elif combo_index >= 4:
+				AudioManager.play("combo_4")
+				combo_played = true
+			elif combo_index >= 1:
+				AudioManager.play("combo_1")
+				combo_played = true
+		if not combo_played and is_btb_active and btb_count >= 2:
+			AudioManager.play("btb_%d" % min(btb_count, 3))
 	
 	# 添加到伤害累积显示
 	_add_damage_to_display(damage)

@@ -296,6 +296,10 @@ func force_raise_rows(row_count: int, row_generator: Callable, skip_piece_handli
 				if color != null:
 					board_drawer.set_cell_color(x, y, color, piece_type)
 	
+	# 播放垃圾行上涨音效
+	if row_count > 0 and AudioManager:
+		AudioManager.play("garbagerise")
+	
 	# 检查是否有任何非空方块超过第50行（y < 50，高于第50行即触发游戏结束）
 	# 隐藏区域共70行（0-69），第0-49行为禁止区，第50-69行为安全缓冲
 	var has_block_above_50: bool = false

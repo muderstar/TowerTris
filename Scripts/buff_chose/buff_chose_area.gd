@@ -625,11 +625,15 @@ func get_checked_toggle_ids() -> Array[String]:
 
 func _on_back_button_pressed():
 	#print("返回主菜单")
+	if AudioManager:
+		AudioManager.play("menuback")
 	get_tree().change_scene_to_file(main_menu_scene_path)
 
 
 func _on_start_button_pressed():
 	#print("开始游戏 - 进入俄罗斯方块")
+	if AudioManager:
+		AudioManager.play("menuconfirm")
 	
 	# 将应用了所有 buff/debuff 倍率的数据存入 GlobalData
 	var buffed_data: Dictionary = get_buffed_tower_data()

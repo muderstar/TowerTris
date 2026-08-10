@@ -47,20 +47,32 @@ func _apply_ui_scale(_new_scale: float = -1.0) -> void:
 func _connect_signals():
 	if start_button:
 		start_button.pressed.connect(_on_start_button_pressed)
+		start_button.mouse_entered.connect(_on_button_hovered)
 	if setting_button:
 		setting_button.pressed.connect(_on_setting_button_pressed)
+		setting_button.mouse_entered.connect(_on_button_hovered)
 	# if replay_button:  # 回放系统已禁用
 		# replay_button.pressed.connect(_on_replay_button_pressed)
 	if quit_button:
 		quit_button.pressed.connect(_on_quit_button_pressed)
+		quit_button.mouse_entered.connect(_on_button_hovered)
+
+## 按钮悬停音效
+func _on_button_hovered():
+	if AudioManager:
+		AudioManager.play("menuhover")
 
 func _on_start_button_pressed():
 	# 已注释（调试噪音）：print("开始游戏")
+	if AudioManager:
+		AudioManager.play("menuconfirm")
 	GlobalData.reset_stats()
 	get_tree().change_scene_to_file(game_scene_path)
 
 func _on_setting_button_pressed():
 	# 已注释（调试噪音）：print("设置按钮被点击")
+	if AudioManager:
+		AudioManager.play("menuclick")
 	get_tree().change_scene_to_file(setting_scene_path)
 
 # ====== 回放按钮相关（已禁用） ======
@@ -114,6 +126,8 @@ func _on_setting_button_pressed():
 
 func _on_quit_button_pressed():
 	# 已注释（调试噪音）：print("退出游戏")
+	if AudioManager:
+		AudioManager.play("menuback")
 	get_tree().quit()
 
 func _exit_tree():

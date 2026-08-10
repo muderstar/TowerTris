@@ -351,6 +351,8 @@ func _on_softdrop_changed(value: float):
 
 ## 保存设置
 func _on_save_pressed():
+	if AudioManager:
+		AudioManager.play("menuconfirm")
 	if UserSetting.save_settings(current_settings):
 		if hint_label:
 			hint_label.text = "设置已保存！"
@@ -366,6 +368,9 @@ func _on_save_pressed():
 
 ## 重置为默认设置
 func _on_reset_pressed():
+	if AudioManager:
+		AudioManager.play("menuclick")
+	
 	# 获取默认设置
 	current_settings = UserSetting.get_default_settings()
 	
@@ -389,6 +394,8 @@ func _on_reset_pressed():
 ## 返回主菜单
 func _on_back_pressed():
 	# 保存设置
+	if AudioManager:
+		AudioManager.play("menuback")
 	UserSetting.save_settings(current_settings)
 	get_tree().change_scene_to_file("res://Tscns/main_menu.tscn")
 
