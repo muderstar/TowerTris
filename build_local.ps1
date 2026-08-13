@@ -104,6 +104,9 @@ if ($Targets -contains "win") {
   New-Item -ItemType Directory -Force -Path (Split-Path $WinOut) | Out-Null
   Write-Host "  -> 导出 Windows ..."
   & $GodotBin --headless --path $ProjectDir --export-release "Windows Desktop" $WinOut
+  # 部署 ColdClear 原生引擎 sidecar（worker + dll 与可执行文件同目录）
+  Copy-Item (Join-Path $ProjectDir "rust/cold_clear_engine/native/coldclear_worker.exe") (Join-Path $BuildDir "win/") -ErrorAction SilentlyContinue
+  Copy-Item (Join-Path $ProjectDir "rust/cold_clear_engine/native/cold_clear.dll") (Join-Path $BuildDir "win/") -ErrorAction SilentlyContinue
   Write-Host "  ✅ Windows 完成: $WinOut"
   Compress-Archive -Path (Join-Path $BuildDir "win/*") -DestinationPath (Join-Path $BuildDir "TowerTris-Windows.zip") -Force
   Write-Host "  📦 压缩包: $(Join-Path $BuildDir 'TowerTris-Windows.zip')"
@@ -114,6 +117,9 @@ if ($Targets -contains "linux") {
   New-Item -ItemType Directory -Force -Path (Split-Path $LinuxOut) | Out-Null
   Write-Host "  -> 导出 Linux ..."
   & $GodotBin --headless --path $ProjectDir --export-release "Linux" $LinuxOut
+  # 部署 ColdClear 原生引擎 sidecar（worker + .so 与可执行文件同目录）
+  Copy-Item (Join-Path $ProjectDir "rust/cold_clear_engine/native/coldclear_worker_linux") (Join-Path $BuildDir "linux/") -ErrorAction SilentlyContinue
+  Copy-Item (Join-Path $ProjectDir "rust/cold_clear_engine/native/libcold_clear.so") (Join-Path $BuildDir "linux/") -ErrorAction SilentlyContinue
   Write-Host "  ✅ Linux 完成: $LinuxOut"
   Compress-Archive -Path (Join-Path $BuildDir "linux/*") -DestinationPath (Join-Path $BuildDir "TowerTris-Linux.zip") -Force
   Write-Host "  📦 压缩包: $(Join-Path $BuildDir 'TowerTris-Linux.zip')"

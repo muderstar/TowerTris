@@ -128,12 +128,19 @@ mkdir -p "$PROJECT_DIR/build"
 
 if [[ " ${TARGETS[*]} " == *" win "* ]]; then
   export_target "Windows" "Windows Desktop" "$PROJECT_DIR/build/win/TowerTris.exe"
+  # 部署 ColdClear 原生引擎 sidecar（worker + dll 与可执行文件同目录）
+  cp -f "$PROJECT_DIR/rust/cold_clear_engine/native/coldclear_worker.exe" "$PROJECT_DIR/build/win/" 2>/dev/null || true
+  cp -f "$PROJECT_DIR/rust/cold_clear_engine/native/cold_clear.dll" "$PROJECT_DIR/build/win/" 2>/dev/null || true
   ( cd "$PROJECT_DIR/build/win" && zip -r -q "$PROJECT_DIR/build/TowerTris-Windows.zip" . )
   echo "  📦 压缩包: $PROJECT_DIR/build/TowerTris-Windows.zip"
 fi
 
 if [[ " ${TARGETS[*]} " == *" linux "* ]]; then
   export_target "Linux" "Linux" "$PROJECT_DIR/build/linux/TowerTris.x86_64"
+  # 部署 ColdClear 原生引擎 sidecar（worker + .so 与可执行文件同目录，保持可执行权限）
+  cp -f "$PROJECT_DIR/rust/cold_clear_engine/native/coldclear_worker_linux" "$PROJECT_DIR/build/linux/" 2>/dev/null || true
+  cp -f "$PROJECT_DIR/rust/cold_clear_engine/native/libcold_clear.so" "$PROJECT_DIR/build/linux/" 2>/dev/null || true
+  chmod +x "$PROJECT_DIR/build/linux/coldclear_worker_linux" 2>/dev/null || true
   ( cd "$PROJECT_DIR/build/linux" && zip -r -q "$PROJECT_DIR/build/TowerTris-Linux.zip" . )
   echo "  📦 压缩包: $PROJECT_DIR/build/TowerTris-Linux.zip"
 fi

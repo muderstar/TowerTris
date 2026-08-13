@@ -190,6 +190,7 @@ var pc_text_position: Vector2 = Vector2.ZERO
 
 # 伤害累积系统
 var accumulated_damage: int = 0          # 累积的伤害值
+var last_surge_break: int = 0            # 最近一次消行的 surge_break（蓄力断开伤害），供伤害数字染色
 var damage_timer: Timer                  # 伤害计时器
 var damage_pending: bool = false         # 是否有待显示的伤害
 
@@ -283,24 +284,53 @@ func _add_damage_to_display(damage: int):
 	accumulated_damage += damage
 	damage_pending = true
 	
-	# 计算显示位置（在BTB下方，版面外侧距边框一小段距离）
-	var hold_pos = board_drawer._get_hold_position()
-	var hold_height = board_drawer.hold_display_height * board_drawer.cell_size
-	var bottom_y = hold_pos.y + hold_height
-	var offset_y = damage_text_offset_y_cells * board_drawer.cell_size
-	damage_text_position = Vector2(_get_text_anchor_x(), bottom_y + offset_y)
+	# ---- 伤害数字随机出现在版面四周 ----
+	# 以版面左上角为基准，在版面外侧区域随机取点（左侧/右侧/上方随机一侧）
+	var rng = RandomManager.get_random("DAMAGE_TEXT")
+	var cell: float = board_drawer.cell_size
+	var board_w: float = board_drawer.grid_width * cell
+	var board_h: float = board_drawer.grid_height * cell
+	var anchor_x: float = board_drawer.offset_x
+	var anchor_y: float = board_drawer.offset_y
+	var side: int = rng.randi_range(0, 2)  # 0=左 1=右 2=上
+	var gap: float = text_gap_cells * cell
+	var pos: Vector2
+	match side:
+		0:  # 版面左侧
+			pos = Vector2(anchor_x - gap - rng.randf_range(0, cell * 2.0),
+				anchor_y + rng.randf_range(board_h * 0.15, board_h * 0.85))
+		1:  # 版面右侧
+			pos = Vector2(anchor_x + board_w + gap + rng.randf_range(0, cell * 2.0),
+				anchor_y + rng.randf_range(board_h * 0.15, board_h * 0.85))
+		_:  # 版面上方
+			pos = Vector2(anchor_x + rng.randf_range(board_w * 0.15, board_w * 0.85),
+				anchor_y - gap - rng.randf_range(0, cell * 2.0))
+	damage_text_position = pos
+	
+	# ---- 颜色：断开蓄力（surge break）时使用 B2B 蓄满颜色 ----
+	var display_color: Color = damage_text_color
+	if last_surge_break > 0:
+		display_color = btb_charge_color
+	
+	# ---- 数值：有 B2B 时按 (原伤害 - 1) + 1 呈现（蓄力加成部分独立显示）----
+	# 注：surge_break 已包含在 accumulated_damage 中，此处仅做颜色区分，不再重复加值
+	var show_text: String = "%d" % accumulated_damage
+	if is_btb_active and btb_count >= 2:
+		var b2b_part: int = 1
+		var base_part: int = accumulated_damage - 1
+		show_text = "%d+%d" % [base_part, b2b_part]
 	
 	if text_printer:
 		# 攻击数字：弹出放大，向上/向左飘移，几秒后淡出消失
-		text_printer.show_text("damage", "%d Attack" % accumulated_damage, damage_text_position,
-			damage_text_color, damage_text_outline_color, board_drawer.cell_size * 0.9,
+		text_printer.show_text("damage", show_text, damage_text_position,
+			display_color, damage_text_outline_color, cell * 0.9,
 			false, 1.0, damage_display_duration, 1.4,
-			Vector2(-board_drawer.cell_size * 0.4, -board_drawer.cell_size * 0.5),
+			Vector2(-cell * 0.4, -cell * 0.5),
 			HORIZONTAL_ALIGNMENT_RIGHT, true, 0.3)
 	
-	# 攻击冲击波圆环特效
+	# 攻击冲击波圆环特效（颜色随伤害数字）
 	if effect_manager:
-		effect_manager.spawn_ring(damage_text_position, damage_text_color, board_drawer.cell_size * 3.5, 0.45)
+		effect_manager.spawn_ring(damage_text_position, display_color, cell * 3.5, 0.45)
 	
 	# 重置计时器（如果正在运行则停止并重新开始）
 	if damage_timer.is_stopped():
@@ -419,7 +449,13 @@ func check_and_clear_lines() -> int:
 				AudioManager.play("combo_1")
 				combo_played = true
 		if not combo_played and is_btb_active and btb_count >= 2:
-			AudioManager.play("btb_%d" % min(btb_count, 3))
+			# BTB 链音效改用蓄力档位：b2bcharge_1 / b2bcharge_2 / b2bcharge_3
+			if btb_count >= 24:
+				AudioManager.play("b2bcharge_3")
+			elif btb_count >= 8:
+				AudioManager.play("b2bcharge_2")
+			else:
+				AudioManager.play("b2bcharge_1")
 	
 	# 添加到伤害累积显示
 	_add_damage_to_display(damage)
@@ -614,6 +650,7 @@ func _calculate_damage(clear_count: int, spin_type: String) -> int:
 		surge_break = btb_count
 	else:
 		surge_break = 0
+	last_surge_break = surge_break  # 记录本次是否断开蓄力（供伤害数字染色）
 	
 	var combo_damage = 0
 	if combo_count > 0:

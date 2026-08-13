@@ -7,8 +7,11 @@ class_name ColdClearBridge
 ## 逐步转为 BotAction 供 TetrisController 消费。
 ## 不再依赖外部 /root/ColdClearNative autoload（已删除）。
 
-const WORKER_PATH := "res://rust/cold_clear_engine/native/coldclear_worker.exe"
-const DLL_PATH := "res://rust/cold_clear_engine/native/cold_clear.dll"
+# 平台相关的原生二进制：Windows 用 coldclear_worker.exe + cold_clear.dll，
+# Linux 用 coldclear_worker_linux + libcold_clear.so（同一份协议，跨平台 worker）
+static var _is_windows: bool = OS.get_name() == "Windows"
+var _worker_path: String = ""
+var _dll_path: String = ""
 # ===== 冷Clear（ColdClear）搜索参数 · 控制文件：Scripts/bot_play/coldclear_bridge.gd（本文件） =====
 ## 发送给 ColdClear 时，可见窗口上方额外多带的行数（堆叠余量）。仅影响决策输入窗口，不影响棋盘。
 const EXTRA_TOP_ROWS := 4
@@ -112,12 +115,35 @@ func is_waiting_decision() -> bool:
 	return _waiting_native
 
 func _ready():
+	_resolve_native_paths()
 	_native_available = start()
 	if _native_available:
 		move_ready.connect(_on_move_ready)
 		print("ColdClearBridge: 已启动原生ColdClear（dll + worker），将使用ColdClear决策")
 	else:
 		print("ColdClearBridge: 未检测到完整原生ColdClear，使用默认bot链")
+
+## 解析原生二进制路径：优先 PCK 内 res://，其次可执行文件旁（sidecar）。
+## 导出包通常不会把 .so/.exe 打进 PCK，sidecar 是正式发布路径。
+func _resolve_native_paths() -> void:
+	var worker_name: String = "coldclear_worker.exe" if _is_windows else "coldclear_worker_linux"
+	var lib_name: String = "cold_clear.dll" if _is_windows else "libcold_clear.so"
+	# 1) res:// 包内路径（编辑器 / 开发运行）
+	var res_worker: String = "res://rust/cold_clear_engine/native/" + worker_name
+	var res_lib: String = "res://rust/cold_clear_engine/native/" + lib_name
+	# 2) 可执行文件旁 sidecar（导出发布）：<exe目录>/coldclear_worker_linux 等
+	var exe_dir: String = OS.get_executable_path().get_base_dir()
+	var side_worker: String = exe_dir.path_join(worker_name)
+	var side_lib: String = exe_dir.path_join(lib_name)
+	
+	_worker_path = res_worker
+	_dll_path = res_lib
+	if not FileAccess.file_exists(ProjectSettings.globalize_path(res_worker)):
+		if FileAccess.file_exists(side_worker):
+			_worker_path = side_worker
+	if not FileAccess.file_exists(ProjectSettings.globalize_path(res_lib)):
+		if FileAccess.file_exists(side_lib):
+			_dll_path = side_lib
 
 func _exit_tree() -> void:
 	stop()
@@ -132,8 +158,8 @@ func is_native_available() -> bool:
 func get_native_cc_info() -> Dictionary:
 	return {
 		"enabled": _native_available,
-		"dll": DLL_PATH,
-		"worker": WORKER_PATH,
+		"dll": _dll_path,
+		"worker": _worker_path,
 		"cooling_down": Time.get_ticks_msec() < _native_cooldown_until,
 	}
 
@@ -574,13 +600,18 @@ func _move_to_action(code: String) -> String:
 func start() -> bool:
 	if _started:
 		return true
-	var exe: String = ProjectSettings.globalize_path(WORKER_PATH)
+	var exe: String = ProjectSettings.globalize_path(_worker_path)
 	if not FileAccess.file_exists(exe):
-		push_error("coldclear_worker.exe 不存在: " + exe)
+		push_error("ColdClear worker 不存在: " + exe)
 		return false
+	# 导出包中的文件可能丢失可执行权限（PCK 不保存 unix 权限位），
+	# Linux 下启动前确保 +x，避免 execute_with_pipe 因权限拒绝失败。
+	if not _is_windows and not (FileAccess.get_unix_permissions(exe) & 64):
+		var p: int = FileAccess.get_unix_permissions(exe)
+		FileAccess.set_unix_permissions(exe, p | 64)
 	var res: Dictionary = OS.execute_with_pipe(exe, [])
 	if not res.has("stdio"):
-		push_error("无法启动 coldclear_worker.exe")
+		push_error("无法启动 ColdClear worker")
 		return false
 	_stdio = res["stdio"]
 	if res.has("stderr"):
