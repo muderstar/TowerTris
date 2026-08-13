@@ -447,6 +447,7 @@ func check_and_clear_lines() -> int:
 ## 更新BTB状态
 func _update_btb(is_spin_or_quad: bool):
 	if is_spin_or_quad:
+		var prev_btb: int = btb_count
 		if is_btb_active:
 			# 第二次及之后连续四消/spin → BTB计数递增
 			btb_count += 1
@@ -455,6 +456,17 @@ func _update_btb(is_spin_or_quad: bool):
 			is_btb_active = true
 			btb_count = 1
 		_update_btb_text()
+		# B2B 蓄力音效：首次达到蓄满阈值 → b2bcharge_start；之后每级 → b2bcharge_1；
+		# 达到 8 → b2bcharge_2；达到 24 → b2bcharge_3
+		if AudioManager:
+			if prev_btb < btb_charge_at and btb_count >= btb_charge_at:
+				AudioManager.play("b2bcharge_start")
+			elif btb_count >= 24:
+				AudioManager.play("b2bcharge_3")
+			elif btb_count >= 8:
+				AudioManager.play("b2bcharge_2")
+			elif btb_count > btb_charge_at:
+				AudioManager.play("b2bcharge_1")
 	else:
 		var was_charged: bool = btb_count >= btb_charge_at
 		var released_amount: int = btb_count

@@ -727,9 +727,6 @@ func _force_lock_piece():
 	if cleared == 0 and garbage_line_controller:
 		garbage_line_controller.process_garbage_after_lock()
 	
-	if cleared == 0 and AudioManager:
-		AudioManager.play("boardlock")
-	
 	spawn_new_piece()
 
 func _lock_piece():
@@ -739,9 +736,6 @@ func _lock_piece():
 	# 只有在没有消行的情况下才触发垃圾行增长
 	if cleared == 0 and garbage_line_controller:
 		garbage_line_controller.process_garbage_after_lock()
-	
-	if cleared == 0 and AudioManager:
-		AudioManager.play("boardlock")
 	
 	spawn_new_piece()
 

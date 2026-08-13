@@ -41,16 +41,14 @@ var _b2b_badge_cell: float = 24.0       # 当前格子大小（用于缩放）
 const GRAVITY: float = 420.0
 const MAX_SHARDS: int = 300
 
-## B2B 蓄力颜色渐变（蓝→青→绿→黄→橙→品红→紫→白，仿 B2B_COLOR_GRADIENT）
+## B2B 蓄力颜色渐变（蓝→绿→黄→红→紫→白，仿 TETR.IO B2B_COLOR_GRADIENT）
 const B2B_COLOR_STOPS: Array = [
-	[0.00, Color(0.30, 0.60, 1.00)],
-	[0.12, Color(0.00, 1.00, 0.60)],
-	[0.25, Color(0.10, 1.00, 0.10)],
-	[0.40, Color(1.00, 1.00, 0.00)],
-	[0.55, Color(1.00, 0.45, 0.05)],
-	[0.70, Color(1.00, 0.10, 0.90)],
-	[0.85, Color(0.60, 0.20, 1.00)],
-	[1.00, Color(1.00, 1.00, 1.00)],
+	[0.00, Color(0.30, 0.60, 1.00)],  # 蓝
+	[0.20, Color(0.00, 1.00, 0.60)],  # 绿
+	[0.40, Color(1.00, 1.00, 0.00)],  # 黄
+	[0.60, Color(1.00, 0.30, 0.25)],  # 红
+	[0.80, Color(0.60, 0.20, 1.00)],  # 紫
+	[1.00, Color(1.00, 1.00, 1.00)],  # 白
 ]
 
 
@@ -138,9 +136,11 @@ func clear_b2b_badge():
 	queue_redraw()
 
 ## 蓄力颜色（按 charge 超阈值后的增量映射到渐变色带）
+## 从蓄满阈值(charge_at)到最高档(24)缓慢过渡，避免颜色跳变过快：
+## t 从 0（到达阈值时）线性增长到 1（charge=24 时）
 func _get_b2b_color(charge: int) -> Color:
-	var amount: float = maxf(0.0, float(charge) - float(_b2b_badge_charge_at) + 1.0)
-	var t: float = clampf(amount / 8.0, 0.0, 1.0)
+	var amount: float = maxf(0.0, float(charge) - float(_b2b_badge_charge_at))
+	var t: float = clampf(amount / 20.0, 0.0, 1.0)
 	for i in range(B2B_COLOR_STOPS.size() - 1):
 		var t0: float = B2B_COLOR_STOPS[i][0]
 		var t1: float = B2B_COLOR_STOPS[i + 1][0]
