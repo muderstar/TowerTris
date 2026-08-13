@@ -288,7 +288,7 @@ func _add_damage_to_display(damage: int):
 	
 	# ---- 伤害数字随机出现在版面四周 ----
 	# 以版面左上角为基准，在版面外侧区域随机取点（左侧/右侧/上方随机一侧）
-	var rng = RandomManager.get_random("DAMAGE_TEXT")
+	var rng = RandomManager.get_random("MISC")
 	var cell: float = board_drawer.cell_size
 	var board_w: float = board_drawer.grid_width * cell
 	var board_h: float = board_drawer.grid_height * cell

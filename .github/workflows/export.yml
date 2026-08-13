@@ -39,24 +39,27 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build ColdClear native engine (Linux)
+      # 原生引擎二进制已提交到仓库（rust/cold_clear_engine/native/），
+      # 下面的 cargo/gcc 构建是"刷新"性质的：失败也不影响导出（使用仓库内已提交的二进制）。
+      - name: Build ColdClear native engine (Linux, best-effort refresh)
+        continue-on-error: true
         run: |
           cd rust/cold_clear_engine
-          cargo build -p c-api --release
-          cp -f target/release/libcold_clear.so native/libcold_clear.so
-          gcc -O2 -o native/coldclear_worker_linux native/coldclear_worker_linux.c -ldl
-          chmod +x native/coldclear_worker_linux
+          cargo build -p c-api --release || true
+          cp -f target/release/libcold_clear.so native/libcold_clear.so || true
+          gcc -O2 -o native/coldclear_worker_linux native/coldclear_worker_linux.c -ldl || true
+          chmod +x native/coldclear_worker_linux || true
 
-      - name: Build ColdClear native engine (Windows cross)
+      - name: Build ColdClear native engine (Windows cross, best-effort)
         if: ${{ inputs.target_platform == 'Windows' || inputs.target_platform == 'Both' || github.event_name == 'push' }}
+        continue-on-error: true
         run: |
-          sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64
+          sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 || true
           cd rust/cold_clear_engine
-          rustup target add x86_64-pc-windows-gnu
-          cargo build -p c-api --release --target x86_64-pc-windows-gnu
+          rustup target add x86_64-pc-windows-gnu || true
+          cargo build -p c-api --release --target x86_64-pc-windows-gnu || true
           cp -f target/x86_64-pc-windows-gnu/release/cold_clear.dll native/cold_clear.dll || true
           cp -f target/x86_64-pc-windows-gnu/release/cold_clear.dll.a native/cold_clear.lib || true
-          # 编译 Windows worker（MinGW 交叉编译同一份跨平台源码）
           x86_64-w64-mingw32-gcc -O2 -o native/coldclear_worker.exe native/coldclear_worker_linux.c || true
 
       - name: Rebuild UID cache & import assets
