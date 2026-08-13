@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://csm65d5mycwnu" path="res://Scripts/main_game/text_printer.gd" id="8_tprnt"]
 [ext_resource type="Script" path="res://Scripts/main_game/effect_manager.gd" id="9_effm"]
 [ext_resource type="Script" path="res://Scripts/main_game/background_manager.gd" id="10_bgm"]
+[ext_resource type="Script" path="res://Scripts/main_game/booster_gauge.gd" id="11_bsg"]
 
 [node name="Tetris" type="Node2D" unique_id=1813233852]
 
@@ -66,3 +67,8 @@ clear_line_controller = NodePath("../MainBoard/TetrisClearLine")
 
 [node name="BackgroundManager" type="CanvasLayer" parent="."]
 script = ExtResource("10_bgm")
+
+[node name="BoosterGauge" type="Node2D" parent="." node_paths=PackedStringArray("board_drawer", "tower_controller")]
+script = ExtResource("11_bsg")
+board_drawer = NodePath("../MainBoard/TetrisBoardDrawer")
+tower_controller = NodePath("../TowerController")

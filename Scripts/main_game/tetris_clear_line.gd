@@ -64,6 +64,9 @@ class_name TetrisClearLine
 @export var damage_text_outline_color: Color = Color.BLACK  # 伤害文本描边颜色
 @export var damage_text_offset_y_cells: float = 5.5  # 伤害文本相对于Hold框底部的偏移（格子数，正值向下）
 @export var damage_display_duration: float = 1.5  # 伤害显示持续时间（秒）
+# 双色伤害数字：基础部分浅蓝，加成/电荷部分用蓄力色（默认黄，蓄满后随蓄力档位渐变成蓄力色）
+@export var damage_base_text_color: Color = Color(0.35, 0.68, 1.0)  # 基础伤害数字颜色（浅蓝）
+@export var damage_bonus_default_color: Color = Color.GOLD  # 加成/电荷数字默认颜色（未蓄满时）
 
 # 消行文本映射
 var clear_texts: Dictionary = {
@@ -318,11 +321,14 @@ func _add_damage_to_display(damage: int):
 	#   - 四消 + B2B      → 4+1  （base=4, B2B加成=1）
 	#   - 双消 + 10 B2B 断开蓄力 → 1+10 （base=1, surge_break=10）
 	#   - 普通消行        → N    （无加成时只显示基础值）
+	# 双色：基础部分浅蓝，加成/电荷部分用蓄力色（默认黄，蓄满后随蓄力档位渐变）
 	var base_part: int = _last_clear_base
 	var bonus_part: int = _last_clear_bonus
 	var show_text: String = "%d" % base_part
+	var segments: Array = [[str(base_part), damage_base_text_color]]
 	if bonus_part > 0:
 		show_text = "%d+%d" % [base_part, bonus_part]
+		segments.append(["+%d" % bonus_part, _get_damage_bonus_color()])
 	
 	if text_printer:
 		# 攻击数字：弹出放大，向上/向左飘移，几秒后淡出消失
@@ -330,7 +336,7 @@ func _add_damage_to_display(damage: int):
 			display_color, damage_text_outline_color, cell * 0.9,
 			false, 1.0, damage_display_duration, 1.4,
 			Vector2(-cell * 0.4, -cell * 0.5),
-			HORIZONTAL_ALIGNMENT_RIGHT, true, 0.3)
+			HORIZONTAL_ALIGNMENT_RIGHT, true, 0.3, false, segments)
 	
 	# 攻击冲击波圆环特效（颜色随伤害数字）
 	if effect_manager:
@@ -515,9 +521,13 @@ func _update_btb(is_spin_or_quad: bool):
 		is_btb_active = false
 		if text_printer:
 			text_printer.remove_text("btb")
+		# 蓄满后断开 → 徽章爆炸动画（TETR.IO down_send）；否则直接移除徽章
 		if effect_manager:
-			effect_manager.clear_b2b_badge()
-		# 蓄满后断开 → 电荷释放特效（仅 TETR.IO 皮肤）
+			if was_charged and _tetrio_skin():
+				effect_manager.break_b2b_badge(released_amount)
+			else:
+				effect_manager.clear_b2b_badge()
+		# 蓄满后断开 → 电荷释放特效（碎片+冲击波+文字，仅 TETR.IO 皮肤）
 		if was_charged and _tetrio_skin():
 			_btb_charge_release(released_amount)
 		board_drawer.queue_redraw()
@@ -533,8 +543,8 @@ func _update_btb_charge_text():
 	if not effect_manager:
 		return
 	if btb_count >= btb_charge_at:
-		# 六边形徽章 + 蓄力数字（替换文字圆点）
-		# 徽章位于 BTB 文本左侧（同 TETR.IO：badge 在 "B2B X" 文字左边）
+		# 六边形徽章 + 蓄力数字（徽章位于 BTB 文本左侧，同 TETR.IO）
+		# badge_pos.x 作为徽章右边缘锚点：徽章向左生长，绝不遮挡右侧 "B2B X" 文本
 		var anchor_x: float = _get_text_anchor_x()
 		var text_width: float = 0.0
 		var font := ThemeDB.fallback_font
@@ -555,20 +565,61 @@ func _has_effects() -> bool:
 	return effect_manager != null
 
 ## BTB电荷释放：蓄满的BTB断开时，碎片爆发+冲击波+文字
+## 文字与原伤害数字一致：<本次消行伤害>+<电荷伤害>（如 "1+10"），双色显示
+## 弹出位置 = 本次消行位置（贴近方块消除处），上浮距离很短，不飘远
 func _btb_charge_release(amount: int):
 	var cell: float = board_drawer.cell_size if board_drawer else 24.0
-	var pos: Vector2 = btb_text_position + Vector2(0, -cell * 0.5)
+	var pos: Vector2 = _get_piece_clear_spot()
 	if effect_manager:
 		effect_manager.spawn_shards(pos, btb_charge_color, 26, 340.0)
 		effect_manager.spawn_ring(pos, btb_charge_color, cell * 6.0, 0.6)
 	if text_printer:
-		text_printer.show_text("btbrelease", "CHARGE RELEASE +%d" % amount, pos,
-			btb_charge_color, btb_text_outline_color, cell * 1.0, false, 1.0, 1.3, 1.3,
-			Vector2(0, -cell * 0.6), HORIZONTAL_ALIGNMENT_RIGHT, true, 0.4)
+		# 双色：base 为本次消行伤害（浅蓝），bonus 为断开蓄力的电荷伤害（蓄力色）
+		var base_part: int = _last_clear_base
+		var bonus_part: int = _last_clear_bonus
+		var show_text: String = "%d" % base_part
+		var segments: Array = [[str(base_part), damage_base_text_color]]
+		if bonus_part > 0:
+			show_text = "%d+%d" % [base_part, bonus_part]
+			segments.append(["+%d" % bonus_part, _get_charge_color(amount)])
+		text_printer.show_text("btbrelease", show_text, pos,
+			btb_charge_color, btb_text_outline_color, cell * 1.0, false, 1.0, 1.0, 1.0,
+			Vector2(0, -cell * 0.3), HORIZONTAL_ALIGNMENT_CENTER, true, 0.4, false, segments)
 	if AudioManager:
 		AudioManager.play("btb_break")
 		AudioManager.play("garbagesmash")
 	board_drawer.queue_redraw()
+
+## 指定电荷量的蓄力颜色：未达蓄满阈值返回默认黄，达阈值取蓄力渐变当前色
+func _get_charge_color(charge: int) -> Color:
+	if charge < btb_charge_at:
+		return damage_bonus_default_color
+	if effect_manager:
+		return effect_manager.get_b2b_color(charge, btb_charge_at)
+	return damage_bonus_default_color
+
+## 本次加成/电荷伤害数字颜色（优先取刚断开的蓄力档位，其次当前 B2B 计数）
+func _get_damage_bonus_color() -> Color:
+	var charge: int = btb_count
+	if last_surge_break > 0:
+		charge = last_surge_break
+	return _get_charge_color(charge)
+
+## 本次消行位置的世界坐标中心（作为电荷释放弹字/特效锚点）
+## 优先取已消除行的平均行位，兜底取当前方块位置
+func _get_piece_clear_spot() -> Vector2:
+	var cell: float = board_drawer.cell_size if board_drawer else 24.0
+	if not lines_to_clear.is_empty():
+		var sum_y: int = 0
+		for y: int in lines_to_clear:
+			sum_y += y
+		var avg_y: int = int(round(float(sum_y) / float(lines_to_clear.size())))
+		var mid_x: int = board_drawer.grid_width / 2
+		return board_drawer.cell_to_world(mid_x, avg_y) + Vector2(cell * 0.5, cell * 0.5)
+	if tetris_controller:
+		var cur: Vector2i = tetris_controller.current_position
+		return board_drawer.cell_to_world(cur.x, cur.y) + Vector2(cell * 0.5, cell * 0.5)
+	return btb_text_position + Vector2(0, -cell * 0.5)
 
 ## 更新BTB文本（常驻显示，不随消行淡出）
 func _update_btb_text():

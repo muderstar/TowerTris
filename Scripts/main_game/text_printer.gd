@@ -30,6 +30,7 @@ class TextEntry:
 	var pop_elapsed: float = -1.0      # pop 动画已进行时间（-1 = 无动画）
 	var pop_duration: float = 0.3      # pop 动画时长（秒）
 	var pulse: bool = false            # 常驻文本是否周期脉冲（作用于缩放/透明度）
+	var segments: Array = []           # 多色分段 [[text, Color], ...]；为空时整条使用 color
 
 
 ## key -> Array[TextEntry]
@@ -66,6 +67,7 @@ const OUTLINE_OFFSETS: Array = [
 ##   pop            是否为弹出动画（放大过冲后回落到1.0）
 ##   pop_duration   pop动画时长（秒）
 ##   pulse          常驻文本周期脉冲（发光/呼吸效果）
+##   segments       多色分段 [[text, Color], ...]；提供时分段各自着色，否则整条用 color
 func show_text(
 	key: String,
 	text: String,
@@ -81,7 +83,8 @@ func show_text(
 	alignment: int = HORIZONTAL_ALIGNMENT_RIGHT,
 	pop: bool = false,
 	pop_duration: float = 0.3,
-	pulse: bool = false
+	pulse: bool = false,
+	segments: Array = []
 ) -> void:
 	var list = _entries.get(key)
 	var entry: TextEntry
@@ -90,12 +93,12 @@ func show_text(
 		entry = list[0]
 		_fill_entry(entry, key, text, pos, color, outline_color, font_size,
 			persistent, opacity, display_duration, fade_duration, drift, alignment,
-			pop, pop_duration, pulse)
+			pop, pop_duration, pulse, segments)
 	else:
 		entry = TextEntry.new()
 		_fill_entry(entry, key, text, pos, color, outline_color, font_size,
 			persistent, opacity, display_duration, fade_duration, drift, alignment,
-			pop, pop_duration, pulse)
+			pop, pop_duration, pulse, segments)
 		# 叠加：多条非持久文本在原位叠加显示（不向下错开，各自独立淡出）
 		if list == null:
 			list = []
@@ -120,7 +123,8 @@ func _fill_entry(
 	alignment: int,
 	pop: bool = false,
 	pop_duration: float = 0.3,
-	pulse: bool = false
+	pulse: bool = false,
+	segments: Array = []
 ) -> void:
 	entry.key = key
 	entry.text = text
@@ -135,6 +139,7 @@ func _fill_entry(
 	entry.fade_duration = maxf(fade_duration, 0.0)
 	entry.drift = drift
 	entry.alignment = alignment
+	entry.segments = segments.duplicate(true)
 	entry.elapsed = 0.0
 	entry.fade_elapsed = 0.0
 	entry.pulse = pulse
@@ -295,13 +300,29 @@ func _draw() -> void:
 				scale *= 1.0 + 0.06 * sin(Time.get_ticks_msec() * 0.012)
 			var font_size_int: int = maxi(1, roundi(entry.font_size * scale))
 			var draw_pos: Vector2 = entry.position
+			var text_size: Vector2 = font.get_string_size(entry.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_int)
 			if entry.alignment == HORIZONTAL_ALIGNMENT_RIGHT:
-				var text_size: Vector2 = font.get_string_size(entry.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_int)
 				draw_pos.x -= text_size.x
+			elif entry.alignment == HORIZONTAL_ALIGNMENT_CENTER:
+				draw_pos.x -= text_size.x * 0.5
 			var color: Color = entry.color
 			color.a *= entry.opacity
 			var outline: Color = entry.outline_color
 			outline.a *= entry.opacity
-			for offset: Vector2 in OUTLINE_OFFSETS:
-				draw_string(font, draw_pos + offset, entry.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_int, outline)
-			draw_string(font, draw_pos, entry.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_int, color)
+			# 多色分段：逐段绘制（对齐宽度基准仍为完整文本）
+			if not entry.segments.is_empty():
+				var cursor_x: float = draw_pos.x
+				for seg in entry.segments:
+					var seg_text: String = str(seg[0])
+					if seg_text.is_empty():
+						continue
+					var seg_color: Color = seg[1] as Color
+					seg_color.a *= entry.opacity
+					for offset: Vector2 in OUTLINE_OFFSETS:
+						draw_string(font, Vector2(cursor_x, draw_pos.y) + offset, seg_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_int, outline)
+					draw_string(font, Vector2(cursor_x, draw_pos.y), seg_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_int, seg_color)
+					cursor_x += font.get_string_size(seg_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_int).x
+			else:
+				for offset: Vector2 in OUTLINE_OFFSETS:
+					draw_string(font, draw_pos + offset, entry.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_int, outline)
+				draw_string(font, draw_pos, entry.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_int, color)
