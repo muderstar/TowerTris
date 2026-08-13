@@ -10,7 +10,7 @@ class_name TetrisClearLine
 @export var garbage_line_controller: TetrisGarbageLineController
 @export var tower_controller: TowerController
 @export var text_printer: TextPrinter  # 文本打印器节点（用于显示消行/Spin/连击/BTB文本）
-@export var effect_manager: EffectManager  # 特效管理器（碎片/圆环/数字弹出）
+@export var effect_manager: Node  # 特效管理器（碎片/圆环/数字弹出）
 
 # 消行配置
 @export var clear_animation_duration: float = 0.3  # 消行动画持续时间（秒）
@@ -499,7 +499,7 @@ func _tetrio_skin() -> bool:
 
 ## 特效管理器是否可用（脚本成功挂载的 EffectManager 节点才返回 true）
 func _has_effects() -> bool:
-	return effect_manager is EffectManager and effect_manager != null
+	return effect_manager != null
 
 ## BTB电荷释放：蓄满的BTB断开时，碎片爆发+冲击波+文字
 func _btb_charge_release(amount: int):
