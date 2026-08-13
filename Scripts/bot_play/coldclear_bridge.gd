@@ -206,12 +206,14 @@ func request_plan(game_controller) -> void:
 	_plan_index = 0
 	_plan_hold_done = false
 	if not using_native_cc():
+		push_warning("ColdClearBridge: request_plan 被跳过（native不可用/冷却中），本块回退默认bot")
 		return
 	if game_controller == null:
 		return
 
 	var board_rows: Array = _build_board_rows(game_controller)
 	if board_rows.is_empty():
+		push_warning("ColdClearBridge: 棋盘行构建为空，跳过决策")
 		return
 
 	var hold: String = game_controller.hold_piece_type
@@ -530,6 +532,7 @@ func _on_move_ready(request_id: int, reply: String) -> void:
 		return
 	_pending_request_id = -1
 	_waiting_native = false
+	print("ColdClearBridge: 收到 worker 回复 (id=", request_id, "): ", reply)
 	if reply == "DEAD":
 		_native_cooldown_until = Time.get_ticks_msec() + FAIL_COOLDOWN_MS
 		_plan = {}
