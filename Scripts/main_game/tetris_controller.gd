@@ -1147,24 +1147,28 @@ func _process_bot_control(delta: float) -> void:
 		_bot_piece_cooldown = _get_bot_piece_interval()
 		return
 
-	# 执行计划中的下一个动作
-	var decided_action: BotAction = _coldclear_bridge.next_plan_action()
-	if decided_action == null or String(decided_action.move).is_empty():
-		decided_action = BotAction.new("hard_drop", ["hard_drop"], "hard_drop")
-
-	# PPS限制核心：未到每块最小间隔前，阻止hard_drop锁定新块。
-	if _bot_piece_cooldown > 0.0 and decided_action.move == "hard_drop":
-		_bot_next_action_time = min(_bot_piece_cooldown, 0.05)
-		return
-
-	_apply_bot_action(decided_action)
-
-	if decided_action.move == "hard_drop":
-		_bot_piece_cooldown = _get_bot_piece_interval()
-
-	var action_interval: float = _get_bot_action_interval()
-	if action_interval > 0.0:
-		_bot_next_action_time = min(action_interval, bot_native_action_interval) if action_interval > 0.0 else bot_native_action_interval
+	# 执行计划动作：原生模式下在单帧内连续执行整个计划（移动+硬降），
+	# 仅受 _bot_piece_cooldown（真正的 PPS 限制）约束。
+	# 不能每步都等一帧（_bot_next_action_time）：低帧率下每个动作耗一整帧，
+	# 例如 30fps 时 5 步计划 = 5 帧 ≈ 165ms → 实际 PPS 被卡死在 ~4，与目标 30 不符。
+	var action_count: int = 0
+	while true:
+		var act: BotAction = _coldclear_bridge.next_plan_action()
+		if act == null or String(act.move).is_empty():
+			act = BotAction.new("hard_drop", ["hard_drop"], "hard_drop")
+		# PPS 限制：硬降前检查每块最小间隔
+		if act.move == "hard_drop" and _bot_piece_cooldown > 0.0:
+			_bot_next_action_time = min(_bot_piece_cooldown, 0.05)
+			return
+		_apply_bot_action(act)
+		if act.move == "hard_drop":
+			_bot_piece_cooldown = _get_bot_piece_interval()
+			break
+		action_count += 1
+		# 防御：避免异常情况下无限循环（每个计划最多 64 步）
+		if action_count > 64:
+			_coldclear_bridge.clear_plan()
+			break
 
 ## 把 CC 决策出的动作（BotAction）映射到游戏内直接调用
 func _apply_bot_action(action: BotAction) -> void:

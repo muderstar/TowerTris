@@ -194,6 +194,9 @@ func _extra_data_deal():
 	
 	if extra_data_dict.has("BotMode"):
 		tetris_controller.bot_mode = true
+	# 可调整的 Bot PPS（buff 界面 BotPlay 旁的输入框）
+	if extra_data_dict.has("bot_target_pps"):
+		tetris_controller.bot_target_pps = float(extra_data_dict["bot_target_pps"])
 
 ## 供 bot 读取当前关卡 buff 调整后的攻击倍率（send_mult_attack）。
 func get_send_mult_attack() -> float:

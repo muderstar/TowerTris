@@ -365,6 +365,22 @@ box_id = "BotPlay"
 box_size = 32
 default_checked = false
 
+[node name="BotPpsLabel" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List9" unique_id=1093273369]
+layout_mode = 2
+text = "Bot PPS:"
+
+[node name="BotPpsSpin" type="SpinBox" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List9" unique_id=1093273370]
+layout_mode = 2
+custom_minimum_size = Vector2(70, 0)
+min_value = 1.0
+max_value = 999.0
+step = 1.0
+value = 10.0
+
+[node name="BotPpsHint" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List9" unique_id=1093273371]
+layout_mode = 2
+text = "(仅bot启用时生效)"
+
 [node name="MiddleLeftArea" type="ColorRect" parent="CanvasLayer" unique_id=404125588]
 anchors_preset = -1
 anchor_top = 0.6

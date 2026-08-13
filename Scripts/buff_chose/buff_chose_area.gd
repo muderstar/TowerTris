@@ -321,7 +321,29 @@ func get_buffed_tower_data() -> Dictionary:
 					# 键不在 tower_init_data 中 → 整个值键对加入 extra_data_dict
 					result["extra_data_dict"][key] = config[key]
 	
+	# 启用 Bot 时，注入 Bot PPS（来自 BotPpsSpin 输入框，near 启用bot 按钮）
+	for tb in toggle_boxes:
+		if tb and tb.box_id == "BotPlay" and tb.is_checked_state():
+			var spin = _find_bot_pps_spin()
+			if spin:
+				result["extra_data_dict"]["bot_target_pps"] = spin.value
+				result["extra_data_dict"]["BotMode"] = true
+	
 	return result
+
+## 查找 Bot PPS SpinBox（跨场景层级，用唯一名递归搜索，避免相对路径错位）
+func _find_bot_pps_spin() -> Node:
+	var root_node: Node = get_tree().root
+	return _find_node_by_name(root_node, "BotPpsSpin")
+
+func _find_node_by_name(node: Node, target: String) -> Node:
+	if node.name == target:
+		return node
+	for child in node.get_children():
+		var found: Node = _find_node_by_name(child, target)
+		if found != null:
+			return found
+	return null
 
 
 ## 生成指定 box 的显示文本（仅描述，不含倍率数据——倍率数据由 _update_summary_label 合并显示）

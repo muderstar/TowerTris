@@ -19,7 +19,9 @@ const EXTRA_TOP_ROWS := 4
 const MAX_NODES := 4000000000
 ## 单次决策至少搜索的节点数（min_nodes）。过小会提前停止、决策质量下降。
 ## 提高最低思考节点 → 每次决策至少搜索这么多节点，保证决策质量与稳定性。
-const MIN_NODES := 100000
+## 会按 bot_target_pps 动态缩放（见 _get_min_nodes）：PPS 越高 → 单块思考时间越短 → 节点预算越少，
+## 从而让"输入 30 PPS"真正能跑到接近 30（否则被固定 100k 节点的决策耗时卡在 ~4 PPS）。
+const MIN_NODES_BASE := 100000
 ## 决策失败后的冷却时间（毫秒），避免每块都阻塞等待超时。
 const FAIL_COOLDOWN_MS := 100
 ## 读取 worker 回复的超时（毫秒）。worker 卡住时回退默认 bot。
@@ -111,6 +113,8 @@ var _mutex: Mutex = Mutex.new()
 var _replies_lock: Mutex = Mutex.new()
 var _pending_replies: Array = []
 var _queue: Array = []
+var _pps_diag_count: int = 0  # PPS 诊断打印次数（前 3 次）
+var _request_sent_ms: int = 0  # 最近一次 GO 请求发出时刻（ms）
 
 ## 是否正在等待原生 ColdClear 的异步决策（期间应暂停本地 bot 动作）
 func is_waiting_decision() -> bool:
@@ -520,13 +524,33 @@ func _build_command_batch(
 		threads_used = cc_threads
 	if threads_used <= 0:
 		threads_used = clampi(OS.get_processor_count() - 2, 1, 8)
+	# 节点预算随目标 PPS 动态缩放：PPS 越高 → 单块思考时间越短 → min_nodes 越小，决策越快。
+	# 否则固定 100k 节点的决策耗时会把实际 PPS 卡死在 ~4，与设置的 30 PPS 不符。
+	var target_pps: float = 10.0
+	if game_controller != null and "bot_target_pps" in game_controller:
+		target_pps = float(game_controller.bot_target_pps)
+	var min_nodes: int = _get_min_nodes(target_pps)
+	if _pps_diag_count < 3:
+		_pps_diag_count += 1
+		print("[ColdClearBridge] PPS诊断 target_pps=", target_pps, " → min_nodes=", min_nodes)
+	_request_sent_ms = Time.get_ticks_msec()
 	var go_line: String = "GO %d %d %d %d %d %d %d %d %d" % [
-		1 if use_hold else 0, MAX_NODES, MIN_NODES, threads_used,
+		1 if use_hold else 0, MAX_NODES, min_nodes, threads_used,
 		1 if b2b else 0, combo, incoming, bag_remain, qs.size()]
 	if not qs.is_empty():
 		go_line += " " + " ".join(qs)
 	lines.append(go_line)
 	return "\n".join(lines) + "\n"
+
+## 根据目标 PPS 计算单次决策的 min_nodes 预算。
+## 关系：目标 30 PPS → 每块 ~33ms → 节点预算大幅下调（~2000 节点，决策 <10ms）。
+## 目标 10 PPS（默认）→ 每块 100ms → 用基础 100k 节点保证质量。
+func _get_min_nodes(target_pps: float) -> int:
+	if target_pps <= 0.0:
+		return MIN_NODES_BASE
+	# 简单经验映射：预算 ≈ 基础 / (目标PPS/10)^1.5，并限制最小 2000，避免质量过低。
+	var scaled: float = MIN_NODES_BASE / pow(maxf(target_pps / 10.0, 1.0), 1.5)
+	return clampi(int(scaled), 2000, MIN_NODES_BASE)
 
 ## worker 回复 OK <hold> <n> <mv...>，转为 _plan。
 func _on_move_ready(request_id: int, reply: String) -> void:
@@ -534,6 +558,10 @@ func _on_move_ready(request_id: int, reply: String) -> void:
 		return
 	_pending_request_id = -1
 	_waiting_native = false
+	# 诊断：本次决策往返耗时（request→reply），用于排查 PPS 瓶颈
+	if _pps_diag_count <= 6:
+		var roundtrip: int = Time.get_ticks_msec() - _request_sent_ms
+		print("ColdClearBridge: 决策往返 ", roundtrip, "ms (id=", request_id, ")")
 	print("ColdClearBridge: 收到 worker 回复 (id=", request_id, "): ", reply)
 	if reply == "DEAD":
 		_native_cooldown_until = Time.get_ticks_msec() + FAIL_COOLDOWN_MS
@@ -649,13 +677,17 @@ func stop() -> void:
 	if not _started:
 		return
 	_running = false
-	if _thread:
-		_thread.wait_to_finish()
-		_thread = null
+	# 先向 worker 发 QUIT 并关闭管道，再等线程退出。
+	# 顺序不能反：线程可能正阻塞在 _read_line()（等待 worker 回复），
+	# 若先 wait_to_finish()，worker 不收 QUIT 就永远不会回复 → 线程卡死 → 节点无法释放，
+	# 下一局重建 bridge 时 worker 未真正退出，bot 退化（表现为第二局开始硬降）。
 	if _stdio:
 		_stdio.store_string("QUIT\n")
 		_stdio.flush()
 		_stdio.close()
+	if _thread:
+		_thread.wait_to_finish()
+		_thread = null
 	_stdio = null
 	_started = false
 

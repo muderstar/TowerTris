@@ -644,12 +644,14 @@ func _calculate_damage(clear_count: int, spin_type: String) -> int:
 	var attack_value: int = base_damage + spin_damage
 	
 	# BTB 加成（从第二次连续BTB开始；btb>=4 时额外+1，即 +2）- 适用于 spin 和 quad
+	# BTB 加成（从第二次连续BTB开始；固定 +1）- 适用于 spin 和 quad
 	var btb_boost: int = 0
 	if btb_count > 1:
-		btb_boost = 2 if btb_count >= 4 else 1
 		if not spin_type.is_empty():
+			btb_boost = 1
 			spin_damage += btb_boost
 		elif clear_count >= 4:
+			btb_boost = 1
 			base_damage += btb_boost
 	
 	if btb_count >= 4 and spin_type.is_empty() and clear_count < 4:

@@ -55,8 +55,8 @@ func _load_stream(path: String) -> AudioStream:
 			return res
 	return null
 
-## 预创建一批播放器用于混音
-func _build_player_pool(pool_size: int = 8):
+## 预创建一批播放器用于混音（更大的池 + 每条音效独立播放，减少互相打断）
+func _build_player_pool(pool_size: int = 24):
 	for i in range(pool_size):
 		var player := AudioStreamPlayer.new()
 		player.volume_db = sfx_volume_db
@@ -66,12 +66,15 @@ func _build_player_pool(pool_size: int = 8):
 # ========== 对外接口 ==========
 
 ## 播放音效（name 为文件名，不含扩展名）
-## 自动从池中选取空闲播放器，全部占用时复用第一个
+## 自动从池中选取空闲播放器；全部占用时复用"已播放最久"的播放器，
+## 保证新的音效总能播出，且不会频繁打断刚响起的音效。
 func play(name: String, volume_db: float = 0.0, pitch_scale: float = 1.0):
 	if not sounds.has(name):
 		push_warning("音效不存在: ", name)
 		return
 	var player: AudioStreamPlayer = _get_free_player()
+	if player == null:
+		return
 	player.stream = sounds[name]
 	player.volume_db = sfx_volume_db + volume_db
 	player.pitch_scale = pitch_scale
@@ -94,9 +97,22 @@ func set_sfx_volume(value_db: float):
 	for player in _players:
 		player.volume_db = sfx_volume_db
 
-## 获取空闲播放器
+## 获取空闲播放器；全部占用时复用已播放时间最长的那个（最早开始 → 最接近自然结束）。
+## 不再总是复用 _players[0]（那会反复打断同一个播放器上的音效）。
 func _get_free_player() -> AudioStreamPlayer:
+	var free: Array[AudioStreamPlayer] = []
 	for player in _players:
 		if not player.playing:
-			return player
-	return _players[0]
+			free.append(player)
+	if not free.is_empty():
+		return free[0]
+	# 全部占用：找出播放最久的（get_playback_position 相对播放长度，最接近结束）
+	var oldest: AudioStreamPlayer = _players[0]
+	var oldest_remain: float = 1e9
+	for player in _players:
+		var stream_len: float = player.stream.get_length() if player.stream else 0.0
+		var remain: float = stream_len - player.get_playback_position()
+		if remain < oldest_remain:
+			oldest_remain = remain
+			oldest = player
+	return oldest
