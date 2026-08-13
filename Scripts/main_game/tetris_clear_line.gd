@@ -368,8 +368,8 @@ func check_and_clear_lines() -> int:
 			_last_clear_type = spin_type
 			_last_clear_count = 0
 		else:
-			# 连击断开音效（仅在之前有连击时播放）
-			if combo_count > 0 and AudioManager:
+			# 连击断开音效（仅当连击数 > 5 时才播放）
+			if combo_count > 5 and AudioManager:
 				AudioManager.play("combobreak")
 			# 不去重置其他消行/Spin/连击文本，让它们自然淡出消失
 			combo_count = 0

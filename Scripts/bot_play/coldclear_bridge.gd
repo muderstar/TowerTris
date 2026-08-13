@@ -603,8 +603,8 @@ func _move_to_action(code: String) -> String:
 func start() -> bool:
 	if _started:
 		return true
-	var exe: String = ProjectSettings.globalize_path(_worker_path)
-	if not FileAccess.file_exists(exe):
+	var exe: String = _find_worker_path()
+	if exe.is_empty() or not FileAccess.file_exists(exe):
 		push_error("ColdClear worker 不存在: " + exe)
 		return false
 	# 导出包中的文件可能丢失可执行权限（PCK 不保存 unix 权限位），
@@ -624,6 +624,21 @@ func start() -> bool:
 	_thread = Thread.new()
 	_thread.start(_loop)
 	return true
+
+## 解析 worker 可执行文件的真实 OS 路径（依次尝试 sidecar → res://）
+## 返回空串表示找不到。sidecar 是导出发布的主路径（PCK 不打 .so/.exe）。
+func _find_worker_path() -> String:
+	var worker_name: String = "coldclear_worker.exe" if _is_windows else "coldclear_worker_linux"
+	# 1) 可执行文件旁 sidecar（导出发布）：<exe目录>/coldclear_worker_linux
+	var exe_dir: String = OS.get_executable_path().get_base_dir()
+	var side: String = exe_dir.path_join(worker_name)
+	if FileAccess.file_exists(side):
+		return side
+	# 2) res:// 包内路径（编辑器 / 开发运行）
+	var res_path: String = ProjectSettings.globalize_path("res://rust/cold_clear_engine/native/" + worker_name)
+	if FileAccess.file_exists(res_path):
+		return res_path
+	return ""
 
 ## 停止 worker：发送 QUIT 并等待线程退出
 func stop() -> void:
