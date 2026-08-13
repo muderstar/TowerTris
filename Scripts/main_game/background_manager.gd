@@ -12,8 +12,10 @@ const BG_COUNT: int = 10
 @export var animation_duration: float = 1.5  # 交叉淡入淡出时长（秒）
 
 ## 楼层→背景下标映射（仿 TETR.IO MINIMAL_BGS 阈值表思路：达到阈值即切换）
-## 游戏共 18 个楼层（stage 0-17），10 张背景图，每张覆盖约 2 个楼层
-const STAGE_TO_BG: Array = [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9]
+## 游戏共 18 个楼层（stage 0-17），10 张背景图。
+## 关键：stage 1（第 2 层）就切到 bg 1，保证第一次升层立即有可见变化；
+## 之后每 2 个楼层切换一张（1,1,2,2,3,3...），最后一张 bg 9 覆盖顶部两层。
+const STAGE_TO_BG: Array = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9]
 
 ## 每张背景的海拔色调叠加（仿 TETR.IO TINT_GRADIENT_BG_BACK：越高越暗越冷）
 ## 下标对应 STAGE_TO_BG 中的背景下标
