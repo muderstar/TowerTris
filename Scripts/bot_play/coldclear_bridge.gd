@@ -108,6 +108,8 @@ var _started: bool = false
 var _running: bool = false
 var _thread: Thread = null
 var _mutex: Mutex = Mutex.new()
+var _replies_lock: Mutex = Mutex.new()
+var _pending_replies: Array = []
 var _queue: Array = []
 
 ## 是否正在等待原生 ColdClear 的异步决策（期间应暂停本地 bot 动作）
@@ -632,10 +634,12 @@ func _find_worker_path() -> String:
 	# 1) 可执行文件旁 sidecar（导出发布）：<exe目录>/coldclear_worker_linux
 	var exe_dir: String = OS.get_executable_path().get_base_dir()
 	var side: String = exe_dir.path_join(worker_name)
+	print("[ColdClearBridge] 诊断 exe_dir=", exe_dir, " | side=", side, " | exists=", FileAccess.file_exists(side))
 	if FileAccess.file_exists(side):
 		return side
 	# 2) res:// 包内路径（编辑器 / 开发运行）
 	var res_path: String = ProjectSettings.globalize_path("res://rust/cold_clear_engine/native/" + worker_name)
+	print("[ColdClearBridge] 诊断 res_path=", res_path, " | exists=", FileAccess.file_exists(res_path))
 	if FileAccess.file_exists(res_path):
 		return res_path
 	return ""
@@ -679,23 +683,41 @@ func _loop() -> void:
 		var cmd: String = req["cmd"]
 		var rid: int = req["id"]
 		if _stdio == null:
-			call_deferred("_emit_move_ready", rid, "ERR no_worker")
+			_replies_lock.lock()
+			_pending_replies.append({"id": rid, "reply": "ERR no_worker"})
+			_replies_lock.unlock()
 			continue
 		_stdio.store_string(cmd)
 		_stdio.flush()
 		var reply: String = _read_line()
-		call_deferred("_emit_move_ready", rid, reply)
+		# 线程安全：写入互斥保护的回复缓冲，由主线程 _process 每帧轮询
+		_replies_lock.lock()
+		_pending_replies.append({"id": rid, "reply": reply})
+		_replies_lock.unlock()
 
-func _emit_move_ready(rid: int, reply: String) -> void:
-	move_ready.emit(rid, reply)
+## 主线程每帧轮询 worker 回复（替代跨线程 call_deferred，规避线程安全问题）
+func _poll_replies() -> void:
+	if _pending_replies.is_empty():
+		return
+	_replies_lock.lock()
+	var batch: Array = _pending_replies.duplicate()
+	_pending_replies.clear()
+	_replies_lock.unlock()
+	for entry in batch:
+		_on_move_ready(int(entry["id"]), str(entry["reply"]))
 
-## 阻塞读取一行回复（带超时）
+func _process(_delta: float) -> void:
+	_poll_replies()
+
+## 阻塞读取一行回复（worker 线程专用）。
+## 注意：不能用 get_length() 判断管道是否有数据——pipe 的 get_length() 恒为 0，
+## 会永远空转直到超时。直接阻塞 get_line()，仅当一行完整回复到达或 EOF 才返回。
 func _read_line() -> String:
-	var deadline: int = Time.get_ticks_msec() + READ_TIMEOUT_MS
-	while _running and Time.get_ticks_msec() < deadline:
-		if _stdio != null and _stdio.get_length() > 0:
-			return _stdio.get_line().strip_edges()
-		OS.delay_msec(10)
-	return "TIMEOUT"
+	if _stdio == null:
+		return "TIMEOUT"
+	var line: String = _stdio.get_line()
+	if line.is_empty() and _stdio.eof_reached():
+		return "ERR worker_exited"
+	return line.strip_edges()
 
 # ========== 原生 ColdClear 决策入口 ==========

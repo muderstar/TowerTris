@@ -9,6 +9,7 @@
 [ext_resource type="Script" uid="uid://cix84cmt6nee6" path="res://Scripts/main_game/fps_display.gd" id="7_et6fd"]
 [ext_resource type="Script" uid="uid://csm65d5mycwnu" path="res://Scripts/main_game/text_printer.gd" id="8_tprnt"]
 [ext_resource type="Script" path="res://Scripts/main_game/effect_manager.gd" id="9_effm"]
+[ext_resource type="Script" path="res://Scripts/main_game/background_manager.gd" id="10_bgm"]
 
 [node name="Tetris" type="Node2D" unique_id=1813233852]
 
@@ -62,3 +63,6 @@ tetris_controller = NodePath("../MainBoard/TetrisController")
 garbage_line_controller = NodePath("../MainBoard/GarbageLineController")
 board_drawer = NodePath("../MainBoard/TetrisBoardDrawer")
 clear_line_controller = NodePath("../MainBoard/TetrisClearLine")
+
+[node name="BackgroundManager" type="CanvasLayer" parent="."]
+script = ExtResource("10_bgm")

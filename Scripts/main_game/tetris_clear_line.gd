@@ -189,8 +189,10 @@ var _last_clear_count: int = 0       # 上次消行行数
 var pc_text_position: Vector2 = Vector2.ZERO
 
 # 伤害累积系统
-var accumulated_damage: int = 0          # 累积的伤害值
+var accumulated_damage: int = 0          # 累积的伤害值（用于击杀奖励结算）
 var last_surge_break: int = 0            # 最近一次消行的 surge_break（蓄力断开伤害），供伤害数字染色
+var _last_clear_base: int = 0            # 最近一次消行的基础伤害（不含 B2B 加成/surge），供数字拆分为 base+bonus
+var _last_clear_bonus: int = 0           # 最近一次消行的加成伤害（B2B boost 或 surge_break）
 var damage_timer: Timer                  # 伤害计时器
 var damage_pending: bool = false         # 是否有待显示的伤害
 
@@ -312,13 +314,15 @@ func _add_damage_to_display(damage: int):
 	if last_surge_break > 0:
 		display_color = btb_charge_color
 	
-	# ---- 数值：有 B2B 时按 (原伤害 - 1) + 1 呈现（蓄力加成部分独立显示）----
-	# 注：surge_break 已包含在 accumulated_damage 中，此处仅做颜色区分，不再重复加值
-	var show_text: String = "%d" % accumulated_damage
-	if is_btb_active and btb_count >= 2:
-		var b2b_part: int = 1
-		var base_part: int = accumulated_damage - 1
-		show_text = "%d+%d" % [base_part, b2b_part]
+	# ---- 数值：只显示本次消行的伤害（base+bonus），不含累积 spike ----
+	#   - 四消 + B2B      → 4+1  （base=4, B2B加成=1）
+	#   - 双消 + 10 B2B 断开蓄力 → 1+10 （base=1, surge_break=10）
+	#   - 普通消行        → N    （无加成时只显示基础值）
+	var base_part: int = _last_clear_base
+	var bonus_part: int = _last_clear_bonus
+	var show_text: String = "%d" % base_part
+	if bonus_part > 0:
+		show_text = "%d+%d" % [base_part, bonus_part]
 	
 	if text_printer:
 		# 攻击数字：弹出放大，向上/向左飘移，几秒后淡出消失
@@ -412,6 +416,7 @@ func check_and_clear_lines() -> int:
 	var is_perfect_clear = _check_perfect_clear()
 	if is_perfect_clear:
 		damage += pc_damage  # PC额外伤害叠加
+		_last_clear_base += pc_damage  # PC 归入本次基础伤害显示
 		_show_pc_text()
 		# 播放全消音效
 		if AudioManager:
@@ -639,8 +644,9 @@ func _calculate_damage(clear_count: int, spin_type: String) -> int:
 	var attack_value: int = base_damage + spin_damage
 	
 	# BTB 加成（从第二次连续BTB开始；btb>=4 时额外+1，即 +2）- 适用于 spin 和 quad
+	var btb_boost: int = 0
 	if btb_count > 1:
-		var btb_boost: int = 2 if btb_count >= 4 else 1
+		btb_boost = 2 if btb_count >= 4 else 1
 		if not spin_type.is_empty():
 			spin_damage += btb_boost
 		elif clear_count >= 4:
@@ -681,7 +687,12 @@ func _calculate_damage(clear_count: int, spin_type: String) -> int:
 					var extra = (combo_count - combo_damage_list.size()) / 2.0
 					combo_damage = min(5, combo_damage_list[-1] + extra)
 	
-	return base_damage + spin_damage + combo_damage + surge_break
+	var total_damage: int = base_damage + spin_damage + combo_damage + surge_break
+	# 记录本次消行的 base+bonus 拆分（供伤害数字显示）：
+	# bonus = B2B 加成 或 surge_break（两者互斥：spin/quad 走 btb_boost，普通小消走 surge）
+	_last_clear_bonus = btb_boost + surge_break
+	_last_clear_base = total_damage - _last_clear_bonus
+	return total_damage
 
 ## 获取Spin的键名
 func _get_spin_key(spin_type: String) -> String:

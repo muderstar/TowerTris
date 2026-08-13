@@ -51,7 +51,9 @@ static func get_default_settings() -> Dictionary:
 		# 皮肤设置
 		"skin": "original",
 		# 网格线透明度（0-1）
-		"grid_opacity": 1.0
+		"grid_opacity": 1.0,
+		# 背景动画开关（塔楼层背景交叉淡入）
+		"bg_animation": true
 	}
 
 ## 动作名称列表
