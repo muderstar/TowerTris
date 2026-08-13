@@ -132,7 +132,7 @@ var bot_mode: bool = false
 @export var bot_debug_log: bool = true
 
 # --- 以下为 bot 内部状态（运行期维护，勿手改） ---
-var _coldclear_bridge: ColdClearBridge = null
+var _coldclear_bridge: Node = null
 var _bot_piece_serial: int = 0
 var _bot_tracking_piece_serial: int = -1
 var _bot_tracking_board_version: int = 0
@@ -1091,7 +1091,16 @@ func _process(delta):
 func _ensure_coldclear_bridge() -> void:
 	if _coldclear_bridge != null:
 		return
-	_coldclear_bridge = ColdClearBridge.new()
+	# 防御：若 ColdClearBridge 脚本在导出时未成功编译/注册，直接引用类名会导致本脚本解析失败。
+	# 因此通过 ClassDB 动态实例化：类不可用时返回 null，本函数静默跳过，避免
+	# "Parameter p_child is null" 的 add_child(null) 报错与每帧重试刷屏。
+	var bridge: Node = null
+	if ClassDB.class_exists("ColdClearBridge"):
+		bridge = ClassDB.instantiate("ColdClearBridge")
+	if bridge == null:
+		push_warning("ColdClearBridge 不可用，跳过原生bot桥（将使用默认bot链）")
+		return
+	_coldclear_bridge = bridge
 	add_child(_coldclear_bridge)
 
 func _process_bot_control(delta: float) -> void:

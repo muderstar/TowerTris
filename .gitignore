@@ -20,3 +20,9 @@ mono_crash.*.json
 # Build logs
 copy_dll.log
 build_test.log
+
+# Local build outputs (build_local.sh / build_local.ps1)
+# Godot 编辑器 + 导出模板（本地构建工具，不纳入版本控制）
+/tools/
+# 导出产物（Windows/Linux 压缩包）
+/build/

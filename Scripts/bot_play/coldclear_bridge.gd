@@ -578,7 +578,7 @@ func start() -> bool:
 	if not FileAccess.file_exists(exe):
 		push_error("coldclear_worker.exe 不存在: " + exe)
 		return false
-	var res: Dictionary = OS.execute_with_pipe(exe, [], false)
+	var res: Dictionary = OS.execute_with_pipe(exe, [])
 	if not res.has("stdio"):
 		push_error("无法启动 coldclear_worker.exe")
 		return false

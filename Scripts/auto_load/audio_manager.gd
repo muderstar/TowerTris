@@ -5,6 +5,22 @@ extends Node
 
 const SFX_DIR: String = "res://Assets/sfx/"
 
+# 全部音效文件名（不含扩展名）。
+# 注意：导出后 res:// 是打包的 PCK，无法用 DirAccess 枚举目录，
+# 因此必须用显式列表 + load() 加载（编辑器与导出包均可用）。
+const SOUND_NAMES: Array[String] = [
+	"allclear", "boardappear", "boardlock", "boardlock_clear",
+	"btb_1", "btb_2", "btb_3", "btb_break",
+	"clearline", "clearquad", "clearspin",
+	"combo_1", "combo_2", "combo_4", "combo_6", "combo_8", "combo_16",
+	"combobreak", "countdown1", "countdown3",
+	"gameover", "garbage_in_small", "garbagerise", "garbagesmash",
+	"go", "harddrop", "hold", "hyperalert", "levelup",
+	"menuback", "menuclick", "menuconfirm", "menuhover",
+	"move", "pause_continue", "pause_start", "piece_change",
+	"rotate", "softdrop", "spin", "victory", "warning",
+]
+
 # 预加载的音效表（名称 → AudioStream）
 var sounds: Dictionary = {}
 
@@ -20,22 +36,14 @@ func _ready():
 	_register_all_sounds()
 	_build_player_pool()
 
-## 注册全部音效（懒加载，仅在需要时从磁盘读取）
+## 注册全部音效（显式列表加载，兼容编辑器与导出包）
 func _register_all_sounds():
-	var dir = DirAccess.open(SFX_DIR)
-	if not dir:
-		push_warning("音频目录不存在: ", SFX_DIR)
-		return
-	dir.list_dir_begin()
-	var file_name = dir.get_next()
-	while file_name != "":
-		if not dir.current_is_dir() and file_name.ends_with(".ogg"):
-			var stream = _load_stream(SFX_DIR + file_name)
-			if stream:
-				var name = file_name.get_basename()
-				sounds[name] = stream
-		file_name = dir.get_next()
-	dir.list_dir_end()
+	for name in SOUND_NAMES:
+		var stream = _load_stream(SFX_DIR + name + ".ogg")
+		if stream:
+			sounds[name] = stream
+	if sounds.is_empty():
+		push_warning("未加载到任何音效，请检查 res://Assets/sfx/ 资源是否已导入")
 
 func _load_stream(path: String) -> AudioStream:
 	if ResourceLoader.exists(path):
