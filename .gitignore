@@ -26,3 +26,7 @@ build_test.log
 /tools/
 # 导出产物（Windows/Linux 压缩包）
 /build/
+
+# 原始音源（仅供重新抽取 SFX 使用，运行时不需要；体积大）
+/sfx/
+/tetrio_offline_20260407/
