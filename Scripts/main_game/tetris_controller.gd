@@ -133,6 +133,7 @@ var bot_mode: bool = false
 
 # --- 以下为 bot 内部状态（运行期维护，勿手改） ---
 var _coldclear_bridge: Node = null
+var _coldclear_bridge_warned: bool = false  # 防止 ColdClearBridge 缺失时每帧刷屏警告
 var _bot_piece_serial: int = 0
 var _bot_tracking_piece_serial: int = -1
 var _bot_tracking_board_version: int = 0
@@ -1086,13 +1087,16 @@ func _ensure_coldclear_bridge() -> void:
 	if _coldclear_bridge != null:
 		return
 	# 防御：若 ColdClearBridge 脚本在导出时未成功编译/注册，直接引用类名会导致本脚本解析失败。
-	# 因此通过 ClassDB 动态实例化：类不可用时返回 null，本函数静默跳过，避免
-	# "Parameter p_child is null" 的 add_child(null) 报错与每帧重试刷屏。
+	# 因此通过 load() 动态加载脚本并实例化；脚本不存在或编译失败时返回 null，
+	# 本函数仅警告一次（_coldclear_bridge_warned 防刷屏），避免 add_child(null) 报错。
+	var script: GDScript = load("res://Scripts/bot_play/coldclear_bridge.gd")
 	var bridge: Node = null
-	if ClassDB.class_exists("ColdClearBridge"):
-		bridge = ClassDB.instantiate("ColdClearBridge")
+	if script != null:
+		bridge = script.new()
 	if bridge == null:
-		push_warning("ColdClearBridge 不可用，跳过原生bot桥（将使用默认bot链）")
+		if not _coldclear_bridge_warned:
+			_coldclear_bridge_warned = true
+			push_warning("ColdClearBridge 不可用，跳过原生bot桥（将使用默认bot链）")
 		return
 	_coldclear_bridge = bridge
 	add_child(_coldclear_bridge)
