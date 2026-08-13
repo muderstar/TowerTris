@@ -96,6 +96,9 @@ func _format_time(seconds: float) -> String:
 
 ## 重玩按钮回调（可选）
 func _on_restart_button_pressed():
+	# 播放确认音效
+	if AudioManager:
+		AudioManager.play("menuconfirm")
 	# 重置全局数据
 	GlobalData.reset_stats()
 	# 切换到游戏场景
@@ -103,6 +106,9 @@ func _on_restart_button_pressed():
 
 ## 返回主菜单按钮回调（可选）
 func _on_menu_button_pressed():
+	# 播放返回音效
+	if AudioManager:
+		AudioManager.play("menuback")
 	# 重置全局数据
 	GlobalData.reset_stats()
 	# 切换到主菜单场景（如果有）

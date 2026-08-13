@@ -323,6 +323,8 @@ func check_and_clear_lines() -> int:
 	
 	if clear_count == 0:
 		if not spin_type.is_empty():
+			if AudioManager:
+				AudioManager.play("spin")
 			# Spin0：显示spin文本，不显示消行文本
 			_show_spin_text_only(spin_type)
 			
@@ -336,6 +338,9 @@ func check_and_clear_lines() -> int:
 			_last_clear_type = spin_type
 			_last_clear_count = 0
 		else:
+			# 连击断开音效（仅在之前有连击时播放）
+			if combo_count > 0 and AudioManager:
+				AudioManager.play("combobreak")
 			# 不去重置其他消行/Spin/连击文本，让它们自然淡出消失
 			combo_count = 0
 			reset_rotation_record()
@@ -401,8 +406,14 @@ func check_and_clear_lines() -> int:
 			elif combo_index >= 8:
 				AudioManager.play("combo_8")
 				combo_played = true
+			elif combo_index >= 6:
+				AudioManager.play("combo_6")
+				combo_played = true
 			elif combo_index >= 4:
 				AudioManager.play("combo_4")
+				combo_played = true
+			elif combo_index >= 2:
+				AudioManager.play("combo_2")
 				combo_played = true
 			elif combo_index >= 1:
 				AudioManager.play("combo_1")
@@ -485,6 +496,10 @@ func _update_btb_charge_text():
 ## 当前是否使用 TETR.IO 皮肤（决定是否启用 b2b 蓄力特效）
 func _tetrio_skin() -> bool:
 	return SkinManager != null and SkinManager.current_skin_id == "tetrio"
+
+## 特效管理器是否可用（脚本成功挂载的 EffectManager 节点才返回 true）
+func _has_effects() -> bool:
+	return effect_manager is EffectManager and effect_manager != null
 
 ## BTB电荷释放：蓄满的BTB断开时，碎片爆发+冲击波+文字
 func _btb_charge_release(amount: int):

@@ -197,6 +197,10 @@ func add_attack(attack_count: int, add_extra_hole: int = 0):
 	}
 	garbage_buffer.append(buffer_entry)
 	
+	# 播放垃圾入槽音效
+	if AudioManager:
+		AudioManager.play("garbage_in_small")
+	
 	# 关联到TetrisController的RPM统计
 	if tetris_controller:
 		# 使用record_received_damage方法记录接收攻击

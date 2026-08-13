@@ -184,6 +184,21 @@ func _ready():
 	
 	# 生成第一个方块
 	spawn_new_piece()
+	
+	# 播放开局音效（版面出现 + 倒计时，不阻塞游戏）
+	_play_start_sfx()
+
+## 播放开局音效（版面出现 + 倒计时）
+func _play_start_sfx():
+	if AudioManager:
+		AudioManager.play("boardappear")
+		AudioManager.play("countdown3")
+	await get_tree().create_timer(0.8).timeout
+	if AudioManager:
+		AudioManager.play("countdown1")
+	await get_tree().create_timer(0.8).timeout
+	if AudioManager:
+		AudioManager.play("go")
 
 func _auto_finding():
 	# 自动查找board_drawer（如果未设置）

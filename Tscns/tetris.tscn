@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://1rqswyci2p50" path="res://Scripts/main_game/tower_controller.gd" id="6_7iclg"]
 [ext_resource type="Script" uid="uid://cix84cmt6nee6" path="res://Scripts/main_game/fps_display.gd" id="7_et6fd"]
 [ext_resource type="Script" uid="uid://csm65d5mycwnu" path="res://Scripts/main_game/text_printer.gd" id="8_tprnt"]
-[ext_resource type="Script" uid="uid://bfx12m3e" path="res://Scripts/main_game/effect_manager.gd" id="9_effm"]
+[ext_resource type="Script" path="res://Scripts/main_game/effect_manager.gd" id="9_effm"]
 
 [node name="Tetris" type="Node2D" unique_id=1813233852]
 

@@ -218,6 +218,8 @@ func _process(delta: float) -> void:
 	
 	# 检测阶段变化
 	if current_stage != _previous_stage:
+		if AudioManager:
+			AudioManager.play("levelup")
 		stage_changed.emit(_previous_stage, current_stage)
 		_previous_stage = current_stage
 	
@@ -273,6 +275,8 @@ func _try_sent_garbage():
 			collected_garbage.clear()
 			_quick_big_attack_clear(4)
 			big_attack_delay_timer.start()
+			if AudioManager:
+				AudioManager.play("hyperalert")
 			big_attack_warning_started.emit()
 		else:
 			_tower_garbage_sent(collected_garbage)
@@ -309,6 +313,8 @@ func _quick_big_attack_clear(segment: int):
 
 func _warning_big_collected_enter():
 	big_attack_warning_ended.emit()
+	if AudioManager:
+		AudioManager.play("garbage_in_small")
 	garbage_line_controller.add_attack(big_attack_enter_array[0])
 	if big_attack_enter_array.size() > 1:
 		big_attack_delay_timer.wait_time = 0.5
