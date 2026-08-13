@@ -12,7 +12,7 @@ const SOUND_NAMES: Array[String] = [
 	"allclear", "boardappear", "boardlock", "boardlock_clear",
 	"btb_1", "btb_2", "btb_3", "btb_break",
 	"b2bcharge_start", "b2bcharge_1", "b2bcharge_2", "b2bcharge_3",
-	"b2bcharge_danger", "b2bcharge_blast_1", "b2bcharge_blast_2",
+	"b2bcharge_4", "b2bcharge_danger", "b2bcharge_blast_1", "b2bcharge_blast_2",
 	"b2bcharge_blast_3", "b2bcharge_blast_4",
 	"clearline", "clearquad", "clearspin",
 	"combo_1", "combo_2", "combo_4", "combo_6", "combo_8", "combo_16",

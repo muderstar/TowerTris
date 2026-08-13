@@ -53,7 +53,11 @@ static func get_default_settings() -> Dictionary:
 		# 网格线透明度（0-1）
 		"grid_opacity": 1.0,
 		# 背景动画开关（塔楼层背景交叉淡入）
-		"bg_animation": true
+		"bg_animation": true,
+		# 背景滚动开关（随塔海拔上下滚动，视觉更强但更耗性能）
+		"bg_scroll": true,
+		# 攀登模式开关（将所有背景连成一面高墙，随海拔连续向下滚动，模拟真实爬塔）
+		"bg_climb": false
 	}
 
 ## 动作名称列表

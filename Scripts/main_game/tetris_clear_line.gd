@@ -460,10 +460,12 @@ func check_and_clear_lines() -> int:
 				AudioManager.play("combo_1")
 				combo_played = true
 		if not combo_played and is_btb_active and btb_count >= 2:
-			# BTB 链音效改用蓄力档位：b2bcharge_1 / b2bcharge_2 / b2bcharge_3
-			if btb_count >= 24:
+			# BTB 链音效按蓄力档位：b2bcharge_1..4（仿 TETR.IO：+4/+8/+20 档）
+			if btb_count >= btb_charge_at + 20:
+				AudioManager.play("b2bcharge_4")
+			elif btb_count >= btb_charge_at + 8:
 				AudioManager.play("b2bcharge_3")
-			elif btb_count >= 8:
+			elif btb_count >= btb_charge_at + 4:
 				AudioManager.play("b2bcharge_2")
 			else:
 				AudioManager.play("b2bcharge_1")
@@ -503,14 +505,16 @@ func _update_btb(is_spin_or_quad: bool):
 			is_btb_active = true
 			btb_count = 1
 		_update_btb_text()
-		# B2B 蓄力音效：首次达到蓄满阈值 → b2bcharge_start；之后每级 → b2bcharge_1；
-		# 达到 8 → b2bcharge_2；达到 24 → b2bcharge_3
+		# B2B 蓄力音效：首次达到蓄满阈值 → b2bcharge_start；之后按档位 →
+		# b2bcharge_1（>阈值）、b2bcharge_2（+4）、b2bcharge_3（+8）、b2bcharge_4（+20）
 		if AudioManager:
 			if prev_btb < btb_charge_at and btb_count >= btb_charge_at:
 				AudioManager.play("b2bcharge_start")
-			elif btb_count >= 24:
+			elif btb_count >= btb_charge_at + 20:
+				AudioManager.play("b2bcharge_4")
+			elif btb_count >= btb_charge_at + 8:
 				AudioManager.play("b2bcharge_3")
-			elif btb_count >= 8:
+			elif btb_count >= btb_charge_at + 4:
 				AudioManager.play("b2bcharge_2")
 			elif btb_count > btb_charge_at:
 				AudioManager.play("b2bcharge_1")
