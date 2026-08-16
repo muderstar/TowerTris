@@ -1,0 +1,492 @@
+[gd_scene format=3 uid="uid://b6i2edtol0cux"]
+
+[ext_resource type="Script" uid="uid://ubmnhfgjgm77" path="res://Scripts/buff_chose/buff_chose_area.gd" id="1_7sx2r"]
+[ext_resource type="Script" uid="uid://hc6y5a0155yd" path="res://Scripts/buff_chose/toggle_box.gd" id="2_7sx2r"]
+[ext_resource type="Script" uid="uid://dcpbd5i5bb55h" path="res://Scripts/buff_chose/toggle_connector.gd" id="3_7sx2r"]
+
+[node name="BuffChoseArea" type="Node2D" unique_id=510707300]
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1516909918]
+
+[node name="buff_chose_area" type="Node2D" parent="CanvasLayer" unique_id=939419095 node_paths=PackedStringArray("back_button", "start_button", "top_scroll_container", "middle_scroll_container", "buff_list")]
+script = ExtResource("1_7sx2r")
+back_button = NodePath("../BottomRightArea/BackButton")
+start_button = NodePath("../BottomRightArea/StartButton")
+top_scroll_container = NodePath("../TopArea/TopScrollContainer")
+middle_scroll_container = NodePath("../MiddleLeftArea/MiddleScrollContainer")
+buff_list = NodePath("../MiddleLeftArea/MiddleScrollContainer/BuffList")
+
+[node name="TopArea" type="ColorRect" parent="CanvasLayer" unique_id=1035801558]
+anchors_preset = -1
+anchor_right = 1.0
+anchor_bottom = 0.6
+mouse_filter = 2
+color = Color(0.45, 0.45, 0.45, 1)
+
+[node name="TopScrollContainer" type="ScrollContainer" parent="CanvasLayer/TopArea" unique_id=1904204260]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+vertical_scroll_mode = 0
+
+[node name="ToggleGrid" type="Panel" parent="CanvasLayer/TopArea/TopScrollContainer" unique_id=251319495]
+layout_mode = 2
+
+[node name="List1" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=1000000008]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 20.0
+offset_right = 82.0
+offset_bottom = 52.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List1" unique_id=386797402]
+layout_mode = 2
+text = "压力："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List1" unique_id=1000000011]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="Pressure1" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List1" unique_id=1649706324]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "Pressure1"
+box_size = 32
+default_checked = false
+
+[node name="Spacer1" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List1" unique_id=1000000001]
+custom_minimum_size = Vector2(16, 32)
+layout_mode = 2
+
+[node name="Pressure2" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List1" unique_id=1000000002]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "Pressure2"
+box_size = 32
+default_checked = false
+
+[node name="Spacer2" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List1" unique_id=1000000009]
+custom_minimum_size = Vector2(16, 32)
+layout_mode = 2
+
+[node name="Pressure3" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List1" unique_id=1000000010]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "Pressure3"
+box_size = 32
+default_checked = false
+
+[node name="List2" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=2147342561]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 64.0
+offset_right = 82.0
+offset_bottom = 96.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List2" unique_id=1041193734]
+layout_mode = 2
+text = "力量："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List2" unique_id=191428437]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List2" unique_id=16621161]
+layout_mode = 2
+
+[node name="StrengthA" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List2/VBoxContainer" unique_id=363686189]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "StrengthA"
+box_size = 32
+default_checked = false
+
+[node name="StrengthB" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List2/VBoxContainer" unique_id=209270111]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "StrengthB"
+box_size = 32
+default_checked = false
+
+[node name="List3" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=484722952]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 142.0
+offset_right = 82.0
+offset_bottom = 174.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List3" unique_id=449802108]
+layout_mode = 2
+text = "重力："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List3" unique_id=1379718408]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="Gravity_1" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List3" unique_id=270907690]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "Gravity_1"
+box_size = 32
+default_checked = false
+
+[node name="List4" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=1202483152]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 184.0
+offset_right = 470.0
+offset_bottom = 216.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=534188387]
+layout_mode = 2
+text = "垃圾行缓冲："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=712380696]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="SuddenlyDeath_1" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=1575735377]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "SuddenlyDeath_1"
+box_size = 32
+default_checked = false
+
+[node name="Spacer_SD1_SD2" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=1830044156]
+custom_minimum_size = Vector2(8, 32)
+layout_mode = 2
+
+[node name="SuddenlyDeath_2" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=1528685501]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "SuddenlyDeath_2"
+box_size = 32
+default_checked = false
+
+[node name="Spacer_SD2_SD3" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=941095585]
+custom_minimum_size = Vector2(8, 32)
+layout_mode = 2
+
+[node name="SuddenlyDeath_3" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=1184382830]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "SuddenlyDeath_3"
+box_size = 32
+default_checked = false
+
+[node name="Spacer_SD3_SD4" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=327964791]
+custom_minimum_size = Vector2(8, 32)
+layout_mode = 2
+
+[node name="SuddenlyDeath_4" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=1565546299]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "SuddenlyDeath_4"
+box_size = 32
+default_checked = false
+
+[node name="Spacer_SD4_SD5" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=1648572332]
+custom_minimum_size = Vector2(8, 32)
+layout_mode = 2
+
+[node name="SuddenlyDeath_5" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=1709791040]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "SuddenlyDeath_5"
+box_size = 32
+default_checked = false
+
+[node name="Spacer_SD5_SD6" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=1841248351]
+custom_minimum_size = Vector2(8, 32)
+layout_mode = 2
+
+[node name="SuddenlyDeath_6" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=615841152]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "SuddenlyDeath_6"
+box_size = 32
+default_checked = false
+
+[node name="Spacer_SD6_SD7" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=1000188032]
+custom_minimum_size = Vector2(8, 32)
+layout_mode = 2
+
+[node name="SuddenlyDeath_7" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=1842038191]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "SuddenlyDeath_7"
+box_size = 32
+default_checked = false
+
+[node name="Spacer_SD7_SD8" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=780243839]
+custom_minimum_size = Vector2(8, 32)
+layout_mode = 2
+
+[node name="SuddenlyDeath_8" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=1643636183]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "SuddenlyDeath_8"
+box_size = 32
+default_checked = false
+
+[node name="Spacer_SD8_SD9" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=1245312713]
+custom_minimum_size = Vector2(8, 32)
+layout_mode = 2
+
+[node name="SuddenlyDeath_9" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=320058133]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "SuddenlyDeath_9"
+box_size = 32
+default_checked = false
+
+[node name="Spacer_SD9_SD10" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=193237295]
+custom_minimum_size = Vector2(8, 32)
+layout_mode = 2
+
+[node name="SuddenlyDeath_10" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List4" unique_id=63320414]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "SuddenlyDeath_10"
+box_size = 32
+default_checked = false
+
+[node name="List5" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=1455174070]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 230.0
+offset_right = 81.0
+offset_bottom = 262.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List5" unique_id=2106262616]
+layout_mode = 2
+text = "隐形："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List5" unique_id=2026337300]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="Invisible_1" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List5" unique_id=727009918]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "Invisible_1"
+box_size = 32
+default_checked = false
+
+[node name="List6" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=1517168648]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 272.0
+offset_right = 65.0
+offset_bottom = 304.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List6" unique_id=1979673050]
+layout_mode = 2
+text = "全旋："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List6" unique_id=156552397]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="Allspin_1" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List6" unique_id=734234311]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "Allspin_1"
+box_size = 32
+default_checked = false
+
+[node name="List7" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=202804398]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 312.0
+offset_right = 81.0
+offset_bottom = 344.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List7" unique_id=1686125779]
+layout_mode = 2
+text = "无暂存："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List7" unique_id=1366149505]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="NoHold_1" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List7" unique_id=734968014]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "NoHold_1"
+box_size = 32
+default_checked = false
+
+[node name="List8" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=1495507124]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 351.0
+offset_right = 82.0
+offset_bottom = 383.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List8" unique_id=329050884]
+layout_mode = 2
+text = "无Spin判定："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List8" unique_id=714722812]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="Talentless" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List8" unique_id=171872954]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "Talentless"
+box_size = 32
+default_checked = false
+
+[node name="List9" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid" unique_id=1836073464]
+layout_mode = 0
+offset_left = 405.0
+offset_top = 24.0
+offset_right = 511.0
+offset_bottom = 56.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List9" unique_id=469802311]
+layout_mode = 2
+text = "启用bot："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List9" unique_id=1556813599]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="BotPlay" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List9" unique_id=1093273368]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "BotPlay"
+box_size = 32
+default_checked = false
+
+[node name="BotPpsLabel" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List9" unique_id=1093273369]
+layout_mode = 2
+text = "Bot PPS:"
+
+[node name="BotPpsSpin" type="SpinBox" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List9" unique_id=1093273370]
+layout_mode = 2
+custom_minimum_size = Vector2(70, 0)
+min_value = 1.0
+max_value = 999.0
+step = 1.0
+value = 10.0
+
+[node name="BotPpsHint" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List9" unique_id=1093273371]
+layout_mode = 2
+text = "(仅bot启用时生效)"
+
+[node name="List10" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 392.0
+offset_right = 65.0
+offset_bottom = 424.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List10"]
+layout_mode = 2
+text = "波动："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List10"]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="Volatile" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List10"]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "Volatile"
+box_size = 32
+default_checked = false
+
+[node name="List11" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 432.0
+offset_right = 65.0
+offset_bottom = 464.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List11"]
+layout_mode = 2
+text = "双洞："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List11"]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="Doublehole_1" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List11"]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "Doublehole_1"
+box_size = 32
+default_checked = false
+
+[node name="List12" type="HBoxContainer" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 472.0
+offset_right = 65.0
+offset_bottom = 504.0
+
+[node name="ChoseType" type="Label" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List12"]
+layout_mode = 2
+text = "混乱："
+
+[node name="ConnectorLine" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List12"]
+layout_mode = 2
+script = ExtResource("3_7sx2r")
+
+[node name="Messy_1" type="Control" parent="CanvasLayer/TopArea/TopScrollContainer/ToggleGrid/List12"]
+layout_mode = 2
+script = ExtResource("2_7sx2r")
+box_id = "Messy_1"
+box_size = 32
+default_checked = false
+
+[node name="MiddleLeftArea" type="ColorRect" parent="CanvasLayer" unique_id=404125588]
+anchors_preset = -1
+anchor_top = 0.6
+anchor_right = 0.73
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.45, 0.45, 0.45, 1)
+
+[node name="MiddleScrollContainer" type="ScrollContainer" parent="CanvasLayer/MiddleLeftArea" unique_id=752170293]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+size_flags_horizontal = 3
+horizontal_scroll_mode = 0
+vertical_scroll_mode = 2
+
+[node name="BuffList" type="VBoxContainer" parent="CanvasLayer/MiddleLeftArea/MiddleScrollContainer" unique_id=920316750]
+layout_mode = 2
+
+[node name="BottomRightArea" type="ColorRect" parent="CanvasLayer" unique_id=134472896]
+anchors_preset = -1
+anchor_left = 0.73
+anchor_top = 0.6
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.45, 0.45, 0.45, 1)
+
+[node name="BackButton" type="Button" parent="CanvasLayer/BottomRightArea" unique_id=1779258868]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 80.0
+offset_right = 180.0
+offset_bottom = 130.0
+text = "BACK"
+
+[node name="StartButton" type="Button" parent="CanvasLayer/BottomRightArea" unique_id=1377299953]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 150.0
+offset_right = 180.0
+offset_bottom = 200.0
+text = "START"

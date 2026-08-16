@@ -1,0 +1,3 @@
+[workspace]
+members = ["bot", "libtetris", "opening-book", "c-api"]
+resolver = "2"

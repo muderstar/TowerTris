@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://bbiy7v2502653"]
+
+[ext_resource type="PackedScene" uid="uid://d1onpmgbsr2wc" path="res://Tscns/mino.tscn" id="1_tet"]
+
+[node name="MinoVerify" type="Node2D" unique_id=1653066200]
+
+[node name="Mino" parent="." unique_id=701111172 instance=ExtResource("1_tet")]
+
+[node name="Driver" type="Node2D" parent="." unique_id=205550611]
