@@ -159,6 +159,8 @@ typedef struct CCWeights {
     int32_t allspin_repeat_penalty;
     int32_t kick_table[64];
     int32_t kick_table_len;
+    bool ras_enabled;
+    int32_t ras_previous_action;
 } CCWeights;
 
 /* ---- function pointer signatures (from c-api coldclear.h) ---- */
@@ -227,6 +229,8 @@ static int32_t g_attack_efficiency_weight = 100;   /* bot 评估权重：攻击�
 static int32_t g_b2b_clear = 200;    /* bot 评估权重：维持 BTB */
 static int32_t g_height = -39;       /* bot 评估权重：放块后的堆叠最高点（负值=压高） */
 static int32_t g_clear4 = 260;       /* bot 评估权重：四消 */
+static bool g_ras_enabled = false;
+static int32_t g_ras_previous_action = -1;
 static uint32_t g_rules_version = 0;
 static uint32_t g_last_rules_version = 0;
 
@@ -373,6 +377,8 @@ static void apply_game_rules(CCWeights *w) {
         w->kick_table[k * 2 + 1] = g_kick_table[k * 2 + 1];
     }
     w->kick_table_len = g_kick_len;
+    w->ras_enabled = g_ras_enabled;
+    w->ras_previous_action = g_ras_previous_action;
 }
 
 /* 解析 S 命令：
@@ -382,10 +388,12 @@ static void apply_game_rules(CCWeights *w) {
  *   <clear1> <clear2> <clear3> <tspin1> <tspin2> <tspin3> <mini_tspin1> <mini_tspin2>
  *   <allspin1> <allspin2> <allspin3> <allspin3plus>
  *   <perfect_clear> <combo_garbage> <wasted_t> <move_time>
- *   <kickLen> <kick dx,dy pairs: 2*kickLen> <combo0..31> <combo_formula>
+ *   <kickLen> <kick dx,dy pairs: 2*kickLen> <combo0..31> <combo_formula> <ras_enabled> <ras_previous_action>
  * 更精确的协议由 bridge 拼接；这里按固定顺序读取。 */
 static void parse_game_rules(char *toks[], int nt) {
     if (nt < 9) return;
+    g_ras_enabled = false;
+    g_ras_previous_action = -1;
     int i = 1;
     g_game_damage_enabled = atoi(toks[i++]) != 0;
     for (int k = 0; k < 5 && i < nt; ++k) g_base_damage[k] = atoi(toks[i++]);
@@ -457,6 +465,11 @@ static void parse_game_rules(char *toks[], int nt) {
     }
     for (int k = 0; k < 32 && i < nt; ++k) g_combo_damage[k] = atoi(toks[i++]);
     if (i < nt) g_combo_formula = atoi(toks[i++]);
+    if (i < nt) g_ras_enabled = atoi(toks[i++]) != 0;
+    if (i < nt) {
+        g_ras_previous_action = atoi(toks[i++]);
+        if (g_ras_previous_action < -1 || g_ras_previous_action > 5) g_ras_previous_action = -1;
+    }
     g_has_game_rules = true;
 }
 
@@ -546,14 +559,14 @@ int main(int argc, char **argv) {
 		}
 		else if (strcmp(cmd, "S") == 0) {
             /* 设置实际游戏规则/伤害模型（buff 界面可调整） */
-            char *rtoks[80];
-            int rnt = tokenize(line, rtoks, 80);
+			char *rtoks[160];
+			int rnt = tokenize(line, rtoks, 160);
             parse_game_rules(rtoks, rnt);
             g_rules_version++;
         }
         else if (strcmp(cmd, "GO") == 0) {
-			char *toks[80];
-			int nt = tokenize(line, toks, 80);
+			char *toks[160];
+			int nt = tokenize(line, toks, 160);
 			int use_hold = (nt > 1) ? atoi(toks[1]) : 1;
 			uint32_t max_nodes = (nt > 2) ? (uint32_t)strtoul(toks[2], NULL, 10) : 4000000000u;
 			uint32_t min_nodes = (nt > 3) ? (uint32_t)strtoul(toks[3], NULL, 10) : 0u;
@@ -684,8 +697,11 @@ int main(int argc, char **argv) {
 
 			request_next(g_bot, (uint32_t)incoming);
 			CCMove mv;
+			CCPlanPlacement plan[32];
+			uint32_t plan_len = 32;
 			memset(&mv, 0, sizeof(mv));
-			CCBotPollStatus st = block_next(g_bot, &mv, NULL, NULL);
+			memset(plan, 0, sizeof(plan));
+			CCBotPollStatus st = block_next(g_bot, &mv, plan, &plan_len);
 
 			if (st == CC_BOT_DEAD) {
 				g_has_pred_field = false;
@@ -715,6 +731,13 @@ int main(int argc, char **argv) {
                         default:       c = '?'; break;
                     }
 					printf(" %c", c);
+				}
+				if (g_ras_enabled && plan_len > 0) {
+					int clear_count = 0;
+					for (int i = 0; i < 4; i++) {
+						if (plan[0].cleared_lines[i] >= 0) clear_count++;
+					}
+					printf(" P %d %d %d", (int)plan[0].piece, (int)plan[0].tspin, clear_count);
 				}
 				printf("\n");
 				fflush(stdout);

@@ -168,6 +168,8 @@ struct SimplifiedBoard<'c> {
     reserve: Piece,
     back_to_back: bool,
     reserve_is_hold: bool,
+    ras_enabled: bool,
+    ras_previous_action: libtetris::RasAction,
 }
 
 impl<E: Evaluation<R> + 'static, R: Clone + 'static> DagState<E, R> {
@@ -667,6 +669,9 @@ impl<E: Evaluation<R> + 'static, R: Clone + 'static> DagState<E, R> {
                             }
                             let mut board = self.board.clone();
                             let lock = advance(&mut board, child.placement);
+                            if lock.ras_repeat {
+                                continue;
+                            }
                             let eval = child_gen.nodes[child.node as usize].evaluation.clone();
                             candidates.push(MoveCandidate {
                                 mv: child.placement,
@@ -811,6 +816,8 @@ fn build_children<'arena, E: Evaluation<R> + 'static, R: Clone + 'static>(
                 Piece::I
             },
             reserve_is_hold: data.board.hold_piece.is_some(),
+            ras_enabled: data.board.ras_enabled,
+            ras_previous_action: data.board.ras_previous_action,
         };
 
         // check if the board is duplicated

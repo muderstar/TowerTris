@@ -44,6 +44,7 @@ fn piece_at(p: Piece, r: RotationState, x: i32, y: i32) -> FallingPiece {
         x,
         y,
         tspin: TspinStatus::None,
+        t_rotation_eligible: false,
     }
 }
 

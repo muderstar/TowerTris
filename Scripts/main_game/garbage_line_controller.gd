@@ -136,7 +136,13 @@ func _update_buffer_timers(delta: float):
 			var converted_extra_hole_count: int = buffer_entry.get("extra_hole_count", 0)
 			
 			# 添加到正常队列末尾（先缓冲完的在底部，先出）
-			garbage_enter_array.append({"count": converted_count, "extra_hole_count": converted_extra_hole_count})
+			var converted_entry := {
+				"count": converted_count,
+				"extra_hole_count": converted_extra_hole_count,
+			}
+			if buffer_entry.has("per_row_holes"):
+				converted_entry["per_row_holes"] = buffer_entry["per_row_holes"]
+			garbage_enter_array.append(converted_entry)
 			
 			# 从缓冲中移除
 			garbage_buffer.remove_at(i)
@@ -257,7 +263,9 @@ func _column_stack_height(x: int) -> int:
 ## @param attack_count: 攻击行数
 ## @param add_extra_hole: 额外挖洞数，在1个基础洞口基础上再额外挖 add_extra_hole 个洞
 ##   基础洞口在函数内直接随机生成，额外洞口在每行上涨时独立随机生成
-func add_attack(attack_count: int, add_extra_hole: int = 0):
+## @param per_row_holes: 每行各自携带的洞口 Array[Array[int]]（如 rAS 开局垃圾：
+##   10 行覆盖全部 10 列）；非空时各行上涨使用自己携带的洞口，不共享基础洞口
+func add_attack(attack_count: int, add_extra_hole: int = 0, per_row_holes: Array = []):
 	if attack_count <= 0:
 		return
 	# 【rAS】垃圾行保护：受击权重缩放传入攻击（权重低 → 伤害少）
@@ -266,9 +274,13 @@ func add_attack(attack_count: int, add_extra_hole: int = 0):
 		return
 	var extra_rng = RandomManager.get_random("GARBAGE")
 	
-	# 只生成1个基础洞口（所有行共享相同的base_hole）
-	var base_hole_x = _get_random_hole_position(extra_rng, -1)
-	var base_hole: Array = [base_hole_x]
+	# 只生成1个基础洞口（所有行共享相同的base_hole）；
+	# 传入 per_row_holes 时用第一个洞作为展示/兜底洞口
+	var base_hole: Array = []
+	if per_row_holes.is_empty():
+		base_hole = [_get_random_hole_position(extra_rng, -1)]
+	else:
+		base_hole = (per_row_holes[0] as Array).duplicate()
 	
 	# 添加到缓冲队列（带计时器）
 	var buffer_entry = {
@@ -279,6 +291,8 @@ func add_attack(attack_count: int, add_extra_hole: int = 0):
 		"timer": buffer_duration,
 		"is_buffered": true
 	}
+	if not per_row_holes.is_empty():
+		buffer_entry["per_row_holes"] = per_row_holes
 	garbage_buffer.append(buffer_entry)
 	
 	# 播放垃圾入槽音效
@@ -308,7 +322,7 @@ func add_ras_initial_garbage(count: int) -> void:
 	if count <= 0 or board_drawer == null:
 		return
 	var rng = RandomManager.get_random("GARBAGE")
-	# 0..grid_width-1 随机排列（Fisher-Yates）
+	# 0..grid_width-1 随机排列（Fisher-Yates）：10 行 → 10 个不同列，全部列都有洞口
 	var cols: Array = []
 	for x in range(board_drawer.grid_width):
 		cols.append(x)
@@ -317,15 +331,11 @@ func add_ras_initial_garbage(count: int) -> void:
 		var tmp = cols[i]
 		cols[i] = cols[j]
 		cols[j] = tmp
-	# 取前 count 个不同列作为洞口，预置到输出队列最前（优先被消费）
-	var seed_holes: Array = []
-	for i in range(mini(count, cols.size())):
-		seed_holes.append([cols[i]])
-	garbage_output_array = seed_holes + garbage_output_array
-	# 逐行加入缓冲（每条独立攻击 → 每行单独消费一个不同洞口），玩家可抵消/接取
-	for i in range(count):
-		add_attack(1)
-	##print("[rAS] 开局注入垃圾: ", count, " 行，洞口列: ", cols.slice(0, mini(count, cols.size())))
+	# 每行携带自己的洞口列（随正常管线缓冲→上涨；不再依赖共享洞口队列，保证每列都有洞）
+	var line_count: int = mini(count, cols.size())
+	for i in range(line_count):
+		add_attack(1, 0, [[cols[i]]])
+	##print("[rAS] 开局注入垃圾: ", line_count, " 行，每行独立洞口覆盖全部列: ", cols.slice(0, line_count))
 
 ## 受击权重刷新（QP2 机制）：每 0.25s 调用一次
 ## 权重 = clamp(3.0 - 0.5 × 灰色行数, 0.5, 3.0)；灰色行越多 → 权重越低 → 受击越少
@@ -850,26 +860,35 @@ func prepare_garbage_for_lock() -> int:
 		current_hole = current_active_hole.duplicate()
 		has_current_hole = true
 		has_overflow = false
-	else:
-		# 获取新的洞口
-		current_hole = _get_next_hole_position()
-		has_current_hole = true
 	
 	# 按garbage_enter_array的顺序处理
 	while remaining_to_process > 0 and enter_index < garbage_enter_array.size():
 		var entry = garbage_enter_array[enter_index]
 		var batch_count = entry["count"]
 		var extra_hole_count: int = entry.get("extra_hole_count", 0)
+		var entry_holes: Array = entry.get("per_row_holes", [])
+		var per_row_mode: bool = not entry_holes.is_empty()
 		
 		# 计算这一批次实际要处理的数量
 		var process_count = min(batch_count, remaining_to_process)
 		
 		if process_count > 0:
-			# 基础洞口（批次内所有行共享），每行额外挖洞独立随机生成
+			# 普通模式：首次需要共享洞口时再取（per-row 批次不消耗洞口队列）
+			if not per_row_mode and current_hole.is_empty():
+				current_hole = _get_next_hole_position()
+				has_current_hole = true
+			
+			# 基础洞口：普通批次所有行共享；per-row 批次每行使用条目携带的洞口
 			var all_row_holes: Array = []
 			var all_is_buffered: Array = []
-			for _i in range(process_count):
-				var row_holes = _generate_row_holes(current_hole, extra_hole_count)
+			for i in range(process_count):
+				var row_holes: Array
+				if per_row_mode:
+					# 【rAS 开局】每行携带独立洞口（10 行覆盖全部 10 列）
+					var row_hole: Array = entry_holes[i] if i < entry_holes.size() else [0]
+					row_holes = _generate_row_holes(row_hole, extra_hole_count)
+				else:
+					row_holes = _generate_row_holes(current_hole, extra_hole_count)
 				all_row_holes.append(row_holes)
 				all_is_buffered.append(false)
 			
@@ -893,8 +912,8 @@ func prepare_garbage_for_lock() -> int:
 			garbage_enter_array.remove_at(enter_index)
 			enter_index -= 1
 		
-		# 如果还有剩余要处理，判定是否换洞
-		if remaining_to_process > 0 and _should_change_hole():
+		# 如果还有剩余要处理，判定是否换洞（仅普通模式；per-row 每行已固定洞口）
+		if not per_row_mode and remaining_to_process > 0 and _should_change_hole():
 			current_hole = _get_next_hole_position()
 		elif remaining_to_process > 0:
 			# 不换洞，保持当前洞口
@@ -1131,19 +1150,28 @@ func _move_enter_to_rise_queue() -> int:
 		current_hole = current_active_hole.duplicate()
 		has_current_hole = true
 		has_overflow = false
-	else:
-		current_hole = _get_next_hole_position()
-		has_current_hole = true
 	
 	while remaining > 0 and enter_index < garbage_enter_array.size():
 		var entry = garbage_enter_array[enter_index]
 		var batch_count = entry["count"]
 		var extra_hole_count: int = entry.get("extra_hole_count", 0)
+		var entry_holes: Array = entry.get("per_row_holes", [])
+		var per_row_mode: bool = not entry_holes.is_empty()
 		var process_count = min(batch_count, remaining)
 		
-		for _i in range(process_count):
-			# 每行独立生成额外挖洞
-			var row_holes = _generate_row_holes(current_hole, extra_hole_count)
+		# 普通模式：首次需要共享洞口时再取（per-row 批次不消耗洞口队列）
+		if not per_row_mode and current_hole.is_empty():
+			current_hole = _get_next_hole_position()
+			has_current_hole = true
+		
+		for i in range(process_count):
+			# 每行独立生成额外挖洞；per-row 批次每行使用条目携带的洞口（如 rAS 开局 10 行覆盖全部列）
+			var row_holes: Array
+			if per_row_mode:
+				var row_hole: Array = entry_holes[i] if i < entry_holes.size() else [0]
+				row_holes = _generate_row_holes(row_hole, extra_hole_count)
+			else:
+				row_holes = _generate_row_holes(current_hole, extra_hole_count)
 			_pending_rise_queue.append({
 				"holes": row_holes,
 				"is_buffered": false,
@@ -1160,7 +1188,8 @@ func _move_enter_to_rise_queue() -> int:
 			garbage_enter_array.remove_at(enter_index)
 			enter_index -= 1
 		
-		if remaining > 0 and _should_change_hole():
+		# 仅普通模式判定换洞（per-row 每行已固定洞口）
+		if not per_row_mode and remaining > 0 and _should_change_hole():
 			current_hole = _get_next_hole_position()
 		
 		enter_index += 1

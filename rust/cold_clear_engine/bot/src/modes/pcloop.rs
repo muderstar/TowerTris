@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use arrayvec::ArrayVec;
 use crossbeam_channel::{unbounded, Sender};
-use libtetris::{Board, FallingPiece, LockResult, MovementMode, Piece};
+use libtetris::{Board, FallingPiece, LockResult, MovementMode, Piece, RasAction, TspinStatus};
 use serde::{Deserialize, Serialize};
 
 use crate::Move;
@@ -18,6 +18,8 @@ pub struct PcLooper {
     hold_enabled: bool,
     solving: bool,
     priority: PcPriority,
+    ras_enabled: bool,
+    ras_previous_action: RasAction,
 }
 
 pub struct PcSolver {
@@ -25,6 +27,8 @@ pub struct PcSolver {
     queue: ArrayVec<[pcf::Piece; 11]>,
     hold_enabled: bool,
     priority: PcPriority,
+    ras_enabled: bool,
+    ras_previous_action: RasAction,
 }
 
 impl PcLooper {
@@ -38,6 +42,8 @@ impl PcLooper {
             solving: false,
             mode,
             priority,
+            ras_enabled: board.ras_enabled,
+            ras_previous_action: board.ras_previous_action,
         }
     }
 
@@ -63,6 +69,8 @@ impl PcLooper {
                 queue,
                 hold_enabled: self.hold_enabled,
                 priority: self.priority,
+                ras_enabled: self.ras_enabled,
+                ras_previous_action: self.ras_previous_action,
             })
         } else {
             None
@@ -186,6 +194,9 @@ impl PcSolver {
             pcf::placeability::simple_srs_spins,
             move |soln| {
                 let soln: ArrayVec<[_; 10]> = soln.iter().copied().collect();
+                if self.has_ras_repeat(&soln) {
+                    return;
+                }
                 let mut score = PcScore::default();
                 let mut b = pcf::BitBoard(0);
                 let mut prev_full = 0;
@@ -252,6 +263,27 @@ impl PcSolver {
             }
             result
         })
+    }
+
+    fn has_ras_repeat(&self, soln: &ArrayVec<[pcf::Placement; 10]>) -> bool {
+        if !self.ras_enabled {
+            return false;
+        }
+        let mut board = Board::<u16>::new();
+        board.ras_enabled = true;
+        board.ras_previous_action = self.ras_previous_action;
+        let mut field = pcf::BitBoard(0);
+        for &placement in soln {
+            let mut piece: FallingPiece = placement.srs_piece(field)[0].into();
+            if check_tspin(placement, field.combine(placement.board())) {
+                piece.tspin = TspinStatus::Full;
+            }
+            if board.lock_piece(piece).ras_repeat {
+                return true;
+            }
+            field = field.combine(placement.board());
+        }
+        false
     }
 }
 

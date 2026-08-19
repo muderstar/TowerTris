@@ -7,6 +7,7 @@ impl From<pcf::SrsPiece> for FallingPiece {
             x: v.x,
             y: v.y,
             tspin: TspinStatus::None,
+            t_rotation_eligible: false,
         }
     }
 }

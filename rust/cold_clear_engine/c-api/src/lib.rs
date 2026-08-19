@@ -219,6 +219,8 @@ struct CCWeights {
     allspin_repeat_penalty: i32,
     kick_table: [i32; 64],
     kick_table_len: i32,
+    ras_enabled: bool,
+    ras_previous_action: i32,
 }
 
 fn convert_hold(hold: *mut CCPiece) -> Option<Piece> {
@@ -338,6 +340,8 @@ unsafe extern "C" fn cc_launch_with_board_async(
     }
     board.allspin_enabled = weights.allspin_enabled;
     board.game_rules_enabled = weights.game_damage_enabled;
+    board.ras_enabled = weights.ras_enabled;
+    board.ras_previous_action = libtetris::RasAction::from_snapshot(weights.ras_previous_action);
     apply_kick_table(&mut board, weights);
     for i in 0..count as usize {
         board.add_next_piece((*pieces.add(i)).into());
@@ -381,6 +385,8 @@ unsafe extern "C" fn cc_launch_async(
     let mut board = Board::new();
     board.allspin_enabled = weights.allspin_enabled;
     board.game_rules_enabled = weights.game_damage_enabled;
+    board.ras_enabled = weights.ras_enabled;
+    board.ras_previous_action = libtetris::RasAction::from_snapshot(weights.ras_previous_action);
     apply_kick_table(&mut board, weights);
     for i in 0..count as usize {
         board.add_next_piece((*pieces.add(i)).into());
@@ -615,6 +621,8 @@ fn convert_weights(w: cold_clear::evaluation::Standard) -> CCWeights {
         allspin_repeat_penalty: w.allspin_repeat_penalty,
         kick_table: [0; 64],
         kick_table_len: 0,
+        ras_enabled: false,
+        ras_previous_action: -1,
     }
 }
 

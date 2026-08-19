@@ -289,7 +289,10 @@ impl Thinker {
             let mut result = board.clone();
             let lock = result.lock_piece(mv.location);
             // Don't add deaths by lock out, don't add useless mini tspins
-            if !lock.locked_out && !(can_be_hd && lock.placement_kind == PlacementKind::MiniTspin) {
+            if !lock.locked_out
+                && !lock.ras_repeat
+                && !(can_be_hd && lock.placement_kind == PlacementKind::MiniTspin)
+            {
                 let move_time = mv.inputs.time + if hold { 1 } else { 0 };
                 let (evaluation, reward) = eval.evaluate(&lock, &result, move_time, spawned.kind.0);
                 children.push(ChildData {

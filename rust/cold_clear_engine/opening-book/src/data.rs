@@ -243,6 +243,7 @@ impl From<CompactPiece> for FallingPiece {
             x: (v.0.get() >> 5 & 0b1111) as i32,
             y: (v.0.get() >> 9 & 0b111111) as i32,
             tspin: libtetris::TspinStatus::None,
+            t_rotation_eligible: false,
         }
     }
 }

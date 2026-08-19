@@ -404,6 +404,7 @@ fn start(
             x,
             y: spawn_y as i32,
             tspin: TspinStatus::None,
+            t_rotation_eligible: false,
         },
         InputList {
             movements: i.iter().copied().collect(),

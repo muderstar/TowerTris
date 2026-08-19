@@ -3,6 +3,36 @@ use serde::{Deserialize, Serialize};
 
 use crate::piece::TspinStatus;
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
+pub enum RasAction {
+    #[default]
+    None,
+    Void,
+    Spin(u8),
+}
+
+impl RasAction {
+    pub fn from_snapshot(value: i32) -> Self {
+        match value {
+            0 => Self::Void,
+            1..=5 => Self::Spin((value - 1) as u8),
+            _ => Self::None,
+        }
+    }
+
+    pub fn snapshot(self) -> i32 {
+        match self {
+            Self::None => -1,
+            Self::Void => 0,
+            Self::Spin(lines) => (lines.min(4) + 1) as i32,
+        }
+    }
+}
+
+pub const fn visible_btb_count(internal_count: u32) -> u32 {
+    internal_count.saturating_sub(1)
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
 pub struct LockResult {
     pub placement_kind: PlacementKind,
@@ -15,12 +45,18 @@ pub struct LockResult {
     /// 本次落块前的 BTB 计数（对应游戏 _calculate_damage 时的 btb_count）。
     /// 用于复刻“btb>=4 时 btb 加成额外 +1”的规则。
     pub btb_count: u32,
+    pub b2b_active_before: bool,
     /// 是否为 allspin（非T方块做出的 spin，不论 mini 还是 full 均算）。
     /// allspin 判定模式由 Board::allspin_enabled 决定（0=allmini→Mini*，1=allspin→Tspin*）。
     pub allspin: bool,
     /// 是否触发 allspin 重复惩罚（与上次消行完全一致：同 spin 类型 + 同行数）。
     /// 完全参与计算，不依赖 allspin_enabled 开关。
     pub allspin_repeat: bool,
+    /// rAS logical action created by this lock. No-clear/non-spin locks have no action.
+    pub ras_action: Option<RasAction>,
+    pub ras_void: bool,
+    /// Whether this lock repeats the prior logical rAS action and is terminal in rAS mode.
+    pub ras_repeat: bool,
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]

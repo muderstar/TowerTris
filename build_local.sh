@@ -101,6 +101,12 @@ fi
 echo ""
 echo "  使用 Godot: $GODOT_BIN"
 
+if [[ " ${TARGETS[*]} " == *" linux "* ]]; then
+  echo ""
+  echo "[2.5/4] 构建 Linux ColdClear 原生引擎..."
+  bash "$PROJECT_DIR/rust/cold_clear_engine/build_native_linux.sh"
+fi
+
 # ---------- 3. 重新导入资源（生成 .godot 缓存）----------
 echo ""
 echo "[3/4] 导入资源（重建 .godot 缓存，修复音效/全局类解析）..."

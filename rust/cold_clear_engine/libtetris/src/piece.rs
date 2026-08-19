@@ -10,6 +10,8 @@ pub struct FallingPiece {
     pub x: i32,
     pub y: i32,
     pub tspin: TspinStatus,
+    #[serde(default)]
+    pub t_rotation_eligible: bool,
 }
 
 impl FallingPiece {
@@ -41,7 +43,10 @@ impl FallingPiece {
             self.y -= dy;
             false
         } else {
-            self.tspin = TspinStatus::None;
+            if !board.ras_enabled {
+                self.tspin = TspinStatus::None;
+                self.t_rotation_eligible = false;
+            }
             true
         }
     }
@@ -54,7 +59,10 @@ impl FallingPiece {
             .min()
             .unwrap();
         if drop_by > 0 {
-            self.tspin = TspinStatus::None;
+            if !board.ras_enabled {
+                self.tspin = TspinStatus::None;
+                self.t_rotation_eligible = false;
+            }
             self.y -= drop_by;
             true
         } else if drop_by < 0 {
@@ -66,7 +74,10 @@ impl FallingPiece {
                     break;
                 }
                 fell = true;
-                self.tspin = TspinStatus::None;
+                if !board.ras_enabled {
+                    self.tspin = TspinStatus::None;
+                    self.t_rotation_eligible = false;
+                }
             }
             fell
         } else {
@@ -109,39 +120,8 @@ impl FallingPiece {
 				self.y = initial.y + dy;
 				if !board.obstructed(self) {
 					if target.0 == Piece::T {
-						// 复刻游戏 _detect_spin_type：
-						//  T块卡住（四方向均被堵）→ 全 T-Spin；
-						//  未卡住 → 仅当包围盒底部两角 + 顶部一角被封堵时为 Mini T-Spin。
-						self.tspin = if board.piece_is_stuck(self) {
-							TspinStatus::Full
-						} else {
-							let mut bottom: i32 = 0;
-							let mut top: i32 = 0;
-							for &(dx, dy) in &target.1.mini_tspin_corners() {
-								if board.occupied(self.x + dx, self.y + dy) {
-									if dy < 0 {
-										bottom += 1;
-									} else {
-										top += 1;
-									}
-								}
-							}
-							for &(dx, dy) in &target.1.non_mini_tspin_corners() {
-								if board.occupied(self.x + dx, self.y + dy) {
-									if dy < 0 {
-										bottom += 1;
-									} else {
-										top += 1;
-									}
-								}
-							}
-							// 游戏 _detect_t_spin_mini：底部两角 + 顶部至少一角
-							if bottom == 2 && top >= 1 {
-								TspinStatus::Mini
-							} else {
-								TspinStatus::None
-							}
-						};
+						self.tspin = board.detect_tspin(self);
+						self.t_rotation_eligible = board.ras_enabled;
 					}
 					return true;
 				}
@@ -581,6 +561,7 @@ impl SpawnRule {
                     x: 4,
                     y: 19,
                     tspin: TspinStatus::None,
+                    t_rotation_eligible: false,
                 };
                 if !board.obstructed(&spawned) {
                     return Some(spawned);
@@ -596,6 +577,7 @@ impl SpawnRule {
                     x: 4,
                     y: 21,
                     tspin: TspinStatus::None,
+                    t_rotation_eligible: false,
                 };
                 if !board.obstructed(&spawned) {
                     spawned.shift(board, 0, -1);
@@ -608,6 +590,7 @@ impl SpawnRule {
                     x: 4,
                     y: spawn_y as i32,
                     tspin: TspinStatus::None,
+                    t_rotation_eligible: false,
                 };
                 if !board.obstructed(&spawned) {
                     return Some(spawned);

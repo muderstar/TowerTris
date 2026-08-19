@@ -116,12 +116,22 @@ const CARD_ASSET_PREFIX: String = "res://Assets/zenith_mods/"
 ## TETR.IO 的 reversed 模式，本游戏不需要。
 const CARD_MODS: Array = [
 	{"box_id": "Allspin_1", "name": "全旋", "icon": "allspin", "back": "allspin-back", "tone": "card_tone_allspin"},
-	{"box_id": "rAS_1", "name": "逆位全旋", "icon": "allspin", "back": "allspin-back", "tone": "card_tone_allspin_reverse", "reversed": true},
 	{"box_id": "Invisible_1", "name": "隐形", "icon": "invisible", "back": "invisible-back", "tone": "card_tone_invisible"},
 	{"box_id": "NoHold_1", "name": "无暂存", "icon": "nohold", "back": "nohold-back", "tone": "card_tone_nohold"},
 	{"box_id": "Volatile", "name": "力量", "icon": "volatile", "back": "volatile-back", "tone": "card_tone_volatile"},
 	{"box_id": "Doublehole_1", "name": "双洞", "icon": "doublehole", "back": "doublehole-back", "tone": "card_tone_doublehole"},
 	{"box_id": "Messy_1", "name": "混乱", "icon": "messy", "back": "messy-back", "tone": "card_tone_messy"},
+]
+
+## 逆位（Reversed）卡片：显示在常规卡片下方第二行；仅允许同时选中一张。
+## 目前只有 rAS（逆位全旋）有实际效果（Warlock 机制）；其余为可选中占位，未来接效果。
+const REVERSED_CARDS: Array = [
+	{"box_id": "rAS_1", "name": "逆位全旋", "icon": "allspin-back", "back": "allspin-back", "tone": "card_tone_allspin_reverse"},
+	{"box_id": "rInvisible_1", "name": "逆位隐形", "icon": "invisible-back", "back": "invisible-back", "tone": "card_tone_invisible_reverse"},
+	{"box_id": "rNoHold_1", "name": "逆位无暂存", "icon": "nohold-back", "back": "nohold-back", "tone": "card_tone_nohold_reverse"},
+	{"box_id": "rVolatile", "name": "逆位力量", "icon": "volatile-back", "back": "volatile-back", "tone": "card_tone_volatile_reverse"},
+	{"box_id": "rDoublehole_1", "name": "逆位双洞", "icon": "doublehole-back", "back": "doublehole-back", "tone": "card_tone_doublehole_reverse"},
+	{"box_id": "rMessy_1", "name": "逆位混乱", "icon": "messy-back", "back": "messy-back", "tone": "card_tone_messy_reverse"},
 ]
 
 var _style_is_cards: bool = false
@@ -132,6 +142,8 @@ var _card_tweens: Dictionary = {}  # box_id -> 翻转 tween
 var _card_visual_state: Dictionary = {}  # box_id -> 上次已应用的选中状态（避免未变化的卡片也翻）
 # 【rAS】卡片反向状态：box_id -> bool（true=逆位/反向激活）。仅 "reversed" 标记的卡片可用。
 var _card_reversed_state: Dictionary = {}
+# 逆位行选中状态：box_id -> bool（仅允许一张逆位卡同时选中）
+var _reversed_selected: Dictionary = {}
 # 卡片长按计时：box_id -> {timer: float, holding: bool, press_pos: Vector2}
 var _card_hold_state: Dictionary = {}
 const CARD_REVERSE_HOLD_TIME: float = 3.0  # 长按3秒 → 卡片反向（逆位模式）
@@ -284,14 +296,21 @@ func _apply_ui_scale(_new_scale: float = -1.0) -> void:
 
 # ========== UI 风格（原始 / 卡片） ==========
 
+func _card_ui_is_eligible() -> bool:
+	return SkinManager != null and SkinManager.current_skin_id == "tetrio"
+
 ## 构建风格切换按钮 + 卡片面板（默认原始风格，选择会持久化到 user_setting）
 func _setup_ui_style() -> void:
+	if not _card_ui_is_eligible():
+		_set_ui_style(false)
+		return
 	var canvas: CanvasLayer = get_parent() as CanvasLayer
 	if canvas == null:
 		return
 	# 风格切换按钮（置于右上角，两种风格下都可见）
 	_style_button = Button.new()
 	_style_button.toggle_mode = true
+	_style_button.z_index = 1
 	_style_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_style_button.offset_left = -170.0
 	_style_button.offset_top = 8.0
@@ -317,23 +336,45 @@ func _setup_ui_style() -> void:
 	_card_panel.offset_bottom = 0.0
 	_card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	canvas.add_child.call_deferred(_card_panel)
+	canvas.move_child.call_deferred(_style_button, -1)
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 10)
+	vbox.anchor_left = 0.0
+	vbox.anchor_right = 1.0
+	vbox.anchor_top = 0.5
+	vbox.anchor_bottom = 0.5
+	vbox.offset_left = 0.0
+	vbox.offset_top = -200.0
+	vbox.offset_right = 0.0
+	vbox.offset_bottom = 200.0
+	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_card_panel.add_child(vbox)
+	# 第一行：常规 MODS 卡片
 	var hbox := HBoxContainer.new()
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	hbox.add_theme_constant_override("separation", 24)
-	hbox.anchor_left = 0.0
-	hbox.anchor_right = 1.0
-	hbox.anchor_top = 0.5
-	hbox.anchor_bottom = 0.5
-	hbox.offset_left = 0.0
-	hbox.offset_top = -84.0
-	hbox.offset_right = 0.0
-	hbox.offset_bottom = 84.0
-	hbox.mouse_filter = Control.MOUSE_FILTER_PASS
-	_card_panel.add_child(hbox)
+	vbox.add_child(hbox)
 	for mod: Dictionary in CARD_MODS:
 		var refs: Dictionary = _build_card(mod)
 		_card_map[mod["box_id"]] = refs
 		hbox.add_child(refs["card"] as Control)
+	# 第二行：逆位（Reversed）卡片 —— 仅可选中一张；目前除 rAS 外暂无实际效果
+	var rev_label := Label.new()
+	rev_label.text = "━ 逆位 MODS ━"
+	rev_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rev_label.add_theme_font_size_override("font_size", 16)
+	rev_label.add_theme_color_override("font_color", Color(1.0, 0.75, 0.55, 0.9))
+	vbox.add_child(rev_label)
+	var hbox_rev := HBoxContainer.new()
+	hbox_rev.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox_rev.add_theme_constant_override("separation", 20)
+	vbox.add_child(hbox_rev)
+	for mod: Dictionary in REVERSED_CARDS:
+		var refs: Dictionary = _build_card(mod, true)
+		_card_map[mod["box_id"]] = refs
+		_reversed_selected[mod["box_id"]] = false
+		hbox_rev.add_child(refs["card"] as Control)
 	# 应用持久化风格（默认 original）
 	var saved: String = str(UserSetting.load_settings().get(UI_STYLE_SETTING_KEY, "original"))
 	_set_ui_style(saved == "cards")
@@ -355,8 +396,9 @@ func _set_ui_style(cards: bool) -> void:
 ## 构建单张 mod 卡片（仿 TETR.IO zenith 卡片选择）：
 ##   正面=mod 图标，背面=反向形态（仅翻转动画瞬间使用，最终停留正面）；
 ##   选中时叠加选择描边（outline.png，呼吸发光）。
-## 点击由透明 Toggle 按钮驱动，联动对应 ToggleBox。
-func _build_card(mod: Dictionary) -> Dictionary:
+## 点击由透明 Toggle 按钮驱动：常规卡联动对应 ToggleBox；逆位卡走 _select_reversed。
+## is_reversed=true 时卡片正面直接使用背板素材（逆位外观）。
+func _build_card(mod: Dictionary, is_reversed: bool = false) -> Dictionary:
 	var card := Control.new()
 	card.custom_minimum_size = Vector2(120, 168)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -417,7 +459,10 @@ func _build_card(mod: Dictionary) -> Dictionary:
 			btn.set_pressed_no_signal(true)
 			set_toggle_checked(box_id, true)
 			return
-		set_toggle_checked(box_id, on)
+		if is_reversed:
+			_select_reversed(box_id, on)
+		else:
+			set_toggle_checked(box_id, on)
 	)
 	card.add_child(btn)
 	card.pivot_offset = Vector2(60, 84)
@@ -517,6 +562,9 @@ func _card_tone_name(box_id: String) -> String:
 	for mod: Dictionary in CARD_MODS:
 		if str(mod["box_id"]) == box_id:
 			return str(mod.get("tone", ""))
+	for mod: Dictionary in REVERSED_CARDS:
+		if str(mod["box_id"]) == box_id:
+			return str(mod.get("tone", ""))
 	return ""
 
 ## 每帧推进卡片长按计时：达到 CARD_REVERSE_HOLD_TIME 秒 → 触发反向激活
@@ -572,6 +620,19 @@ func _set_card_reversed(box_id: String, reversed: bool) -> void:
 func is_card_reversed(box_id: String) -> bool:
 	return _card_reversed_state.get(box_id, false)
 
+## 逆位卡选择（仅允许一张同时选中）：选中时自动取消其他逆位卡
+func _select_reversed(box_id: String, on: bool) -> void:
+	if on:
+		for other_id: String in _reversed_selected:
+			if other_id == box_id or not bool(_reversed_selected[other_id]):
+				continue
+			_reversed_selected[other_id] = false
+			if _card_map.has(other_id):
+				var other_btn: Button = _card_map[other_id]["btn"] as Button
+				other_btn.set_pressed_no_signal(false)
+	_reversed_selected[box_id] = on
+	_sync_card_states(true)
+
 ## 卡片视觉同步：按对应 ToggleBox 状态翻转/置灰。
 ## 仅当卡片状态相对上一次实际变化时才播放翻转动画（否则所有已选中卡片会在
 ## 任意 toggle 变化时都翻一次）；未变化的卡片只做即时状态修正。
@@ -592,10 +653,13 @@ func _sync_card_states(animate: bool = true) -> void:
 			_card_visual_state[box_id] = true
 			continue
 		var checked: bool = false
-		for tb in toggle_boxes:
-			if tb and tb.box_id == box_id and tb.is_checked_state():
-				checked = true
-				break
+		if _reversed_selected.has(box_id):
+			checked = bool(_reversed_selected[box_id])
+		else:
+			for tb in toggle_boxes:
+				if tb and tb.box_id == box_id and tb.is_checked_state():
+					checked = true
+					break
 		var was: bool = _card_visual_state.get(box_id, false)
 		_card_visual_state[box_id] = checked
 		if was == checked:
@@ -702,12 +766,10 @@ func get_buffed_tower_data() -> Dictionary:
 				result["extra_data_dict"]["bot_target_pps"] = spin.value
 				result["extra_data_dict"]["BotMode"] = true
 	
-	# 【rAS】逆位全旋：卡片反向（长按3秒）激活 → 注入 rAS 标志，并强制关闭普通 allspin
-	for mod: Dictionary in CARD_MODS:
-		var rbox_id: String = str(mod["box_id"])
-		if bool(mod.get("reversed", false)) and _card_reversed_state.get(rbox_id, false):
-			result["extra_data_dict"]["rAS"] = 1
-			result["extra_data_dict"]["allspin"] = 0
+	# 【rAS】逆位全旋：逆位行选中 rAS 卡 → 注入 rAS 标志，并强制关闭普通 allspin
+	if _reversed_selected.get("rAS_1", false):
+		result["extra_data_dict"]["rAS"] = 1
+		result["extra_data_dict"]["allspin"] = 0
 	
 	return result
 

@@ -197,6 +197,7 @@ var accumulated_damage: int = 0          # 累积的伤害值（用于击杀奖�
 var last_surge_break: int = 0            # 最近一次消行的 surge_break（蓄力断开伤害），供伤害数字染色
 var _last_clear_base: int = 0            # 最近一次消行的基础伤害（不含 B2B 加成/surge），供数字拆分为 base+bonus
 var _last_clear_bonus: int = 0           # 最近一次消行的加成伤害（B2B boost 或 surge_break）
+var _last_clear_ras_b2b_plus_two: bool = false
 var damage_timer: Timer                  # 伤害计时器
 var damage_pending: bool = false         # 是否有待显示的伤害
 
@@ -332,21 +333,20 @@ func _add_damage_to_display(damage: int):
 	#   - 双消 + 10 B2B 断开蓄力 → 1+10 （base=1, surge_break=10）
 	#   - 普通消行        → N    （无加成时只显示基础值）
 	# 双色：基础部分浅蓝，加成/电荷部分用蓄力色（默认黄，蓄满后随蓄力档位渐变）
-	var base_part: int = _last_clear_base
-	var bonus_part: int = _last_clear_bonus
-	var show_text: String = "%d" % base_part
-	var segments: Array = [[str(base_part), damage_base_text_color]]
-	if bonus_part > 0:
-		show_text = "%d+%d" % [base_part, bonus_part]
-		segments.append(["+%d" % bonus_part, _get_damage_bonus_color()])
+	var popup: Dictionary = _get_damage_popup_parts(
+		_last_clear_base, _last_clear_bonus, _last_clear_ras_b2b_plus_two)
+	var show_text: String = popup["text"]
+	var segments: Array = popup["segments"]
 	
 	if text_printer:
+		# 【rAS】蓄满（btb>=4）时伤害弹字用 DS Crystal 字体；其余模式用默认字体
+		var dmg_font: Font = _get_ras_font() if _last_clear_ras_b2b_plus_two else null
 		# 攻击数字：弹出放大，向上/向左飘移，几秒后淡出消失
 		text_printer.show_text("damage", show_text, damage_text_position,
 			display_color, damage_text_outline_color, cell * 0.9,
 			false, 1.0, damage_display_duration, 1.4,
 			Vector2(-cell * 0.4, -cell * 0.5),
-			HORIZONTAL_ALIGNMENT_RIGHT, true, 0.3, false, segments)
+			HORIZONTAL_ALIGNMENT_RIGHT, true, 0.3, false, segments, dmg_font)
 	
 	# 攻击冲击波圆环特效（颜色随伤害数字）
 	if effect_manager:
@@ -361,6 +361,21 @@ func _add_damage_to_display(damage: int):
 	
 	board_drawer.queue_redraw()
 
+func _get_damage_popup_parts(base_part: int, bonus_part: int, ras_b2b_plus_two: bool) -> Dictionary:
+	var total_damage: int = base_part + bonus_part
+	if rAS and not ras_b2b_plus_two and last_surge_break == 0:
+		return {
+			"text": str(total_damage),
+			"segments": [[str(total_damage), damage_base_text_color]],
+		}
+	var segments: Array = [[str(base_part), damage_base_text_color]]
+	if bonus_part > 0:
+		segments.append(["+%d" % bonus_part, _get_damage_bonus_color()])
+	return {
+		"text": "%d+%d" % [base_part, bonus_part] if bonus_part > 0 else str(base_part),
+		"segments": segments,
+	}
+
 ## 检查并消除完整的行
 func check_and_clear_lines() -> int:
 	if is_animating:
@@ -370,6 +385,11 @@ func check_and_clear_lines() -> int:
 	# Talentless（无才能）：直接跳过整个Spin判定函数
 	var spin_type: String = "" if no_spin else _detect_spin_type()
 	var clear_count = lines_to_clear.size()
+	var has_ras_action: bool = clear_count > 0 or not spin_type.is_empty()
+	var is_ras_dupe: bool = false
+	if rAS and has_ras_action:
+		is_ras_dupe = _ras_dupe_action(spin_type, clear_count)
+	_log_ras_action(spin_type, clear_count, is_ras_dupe)
 	
 	if clear_count == 0:
 		if not spin_type.is_empty():
@@ -383,7 +403,7 @@ func check_and_clear_lines() -> int:
 				if garbage_line_controller:
 					garbage_line_controller.spawn_countdown_row(_current_stage() + 5)
 			# 【rAS】逆位全旋：Spin0 也记录动作（含0行），连续两个相同动作罚20行
-			if rAS and _ras_dupe_action(spin_type, 0):
+			if is_ras_dupe:
 				_ras_apply_penalty()
 			
 			if spin0_btb_enabled or rAS:
@@ -412,18 +432,16 @@ func check_and_clear_lines() -> int:
 	# Allspin判定：落块时判定此消行是否与上次完全一致
 	var is_allspin_repeat: bool = (allspin == 1 and clear_count > 0
 		and clear_count == _last_clear_count and spin_type == _last_clear_type)
-	# 【rAS】逆位全旋判定：记录每次动作（Spin不同行数或Void），连续两个相同动作罚20行
-	var is_ras_dupe: bool = (rAS and clear_count > 0 and _ras_dupe_action(spin_type, clear_count))
-	
 	has_cleared_lines = true
 	var is_spin = not spin_type.is_empty()
+	var is_ras_void = rAS and not is_spin
 	# 单独判断is_quad
 	var is_quad = false
 	if clear_count >= 4:
 		is_quad = true
 	# 判断是否触发BTB
 	var is_spin_or_quad = false
-	if is_quad:
+	if is_quad and not is_ras_void:
 		is_spin_or_quad = true
 	if is_spin:
 		is_spin_or_quad = true
@@ -552,8 +570,9 @@ func _update_btb(is_spin_or_quad: bool):
 			elif btb_count > btb_charge_at:
 				AudioManager.play("b2bcharge_1")
 	else:
-		var was_charged: bool = btb_count >= btb_charge_at
-		var released_amount: int = btb_count
+		var visible_btb_count: int = _get_visible_btb_count()
+		var was_charged: bool = visible_btb_count >= btb_charge_at if rAS else btb_count >= btb_charge_at
+		var released_amount: int = visible_btb_count if rAS else btb_count
 		btb_count = 0
 		is_btb_active = false
 		if text_printer:
@@ -581,7 +600,8 @@ func _update_btb_charge_text():
 		return
 	# 【rAS】通知特效管理器：rAS 时蓄力数字用 DS Crystal 字体 + 红渐变
 	effect_manager.set_ras_mode(rAS)
-	if btb_count >= btb_charge_at:
+	var badge_count: int = _get_visible_btb_count() if rAS else btb_count
+	if badge_count >= btb_charge_at:
 		# 六边形徽章 + 蓄力数字（徽章位于 BTB 文本左侧，同 TETR.IO）
 		# badge_pos.x 作为徽章右边缘锚点：徽章向左生长，绝不遮挡右侧 "B2B X" 文本
 		var anchor_x: float = _get_text_anchor_x()
@@ -591,13 +611,33 @@ func _update_btb_charge_text():
 		if not txt.is_empty():
 			text_width = font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, roundi(cell)).x
 		var badge_pos: Vector2 = Vector2(anchor_x - text_width - cell * 0.8, _get_text_base_y() + (btb_text_offset_y_cells + 0.9) * cell)
-		effect_manager.set_b2b_badge(badge_pos, btb_count, btb_charge_at, cell)
+		effect_manager.set_b2b_badge(badge_pos, badge_count, btb_charge_at, cell)
 	else:
 		effect_manager.clear_b2b_badge()
 
 ## 当前是否使用 TETR.IO 皮肤（决定是否启用 b2b 蓄力特效）
 func _tetrio_skin() -> bool:
 	return SkinManager != null and SkinManager.current_skin_id == "tetrio"
+
+## 懒加载 DS Crystal 字体（rAS 蓄满时伤害弹字用；缺失时回退 fallback）
+const SEG_FONT_PATH: String = "res://Assets/allspin/cristal.ttf"
+var _ras_font: FontFile = null
+var _ras_font_load_failed: bool = false
+
+func _get_ras_font() -> FontFile:
+	if _ras_font != null or _ras_font_load_failed:
+		return _ras_font
+	if ResourceLoader.exists(SEG_FONT_PATH):
+		var imported: Resource = load(SEG_FONT_PATH)
+		if imported is FontFile:
+			_ras_font = imported
+			return _ras_font
+	_ras_font = FontFile.new()
+	if _ras_font.load_dynamic_font(SEG_FONT_PATH) != OK:
+		push_warning("cristal.ttf 加载失败，rAS 伤害数字回退 fallback: ", SEG_FONT_PATH)
+		_ras_font = null
+		_ras_font_load_failed = true
+	return _ras_font
 
 ## 特效管理器是否可用（脚本成功挂载的 EffectManager 节点才返回 true）
 func _has_effects() -> bool:
@@ -611,11 +651,39 @@ func _current_stage() -> int:
 
 # ====== 【rAS】逆位全旋 动作记录 / 惩罚 ======
 
-## rAS 动作记录：{"action": "spin"/"void", "count": 行数}
+## rAS 动作记录：{"action": "spin"/"void", "count": 行数（Void 固定为 0）}
 ## 规则（TETR.IO AS-R）：只记录 Spin 不同行数（含0）或 Void 的动作；
 ## 只要连续两个动作相同 → 罚 20 行直接死亡。
 var _ras_last_action: Dictionary = {}
 var _ras_has_last: bool = false
+
+func _ras_action_debug_label(spin_type: String, clear_count: int) -> String:
+	if spin_type.is_empty():
+		return "VOID" if clear_count > 0 else "NO_CLEAR"
+	return "SPIN(%d)" % clear_count
+
+func _ras_previous_action_debug_label() -> String:
+	if not _ras_has_last:
+		return "NONE"
+	if _ras_last_action.get("action", "") == "void":
+		return "VOID"
+	if _ras_last_action.get("action", "") == "spin":
+		return "SPIN(%d)" % int(_ras_last_action.get("count", 0))
+	return "NONE"
+
+func _log_ras_action(spin_type: String, clear_count: int, is_ras_dupe: bool) -> void:
+	if piece_controller == null or not piece_controller.bot_debug_log:
+		return
+	print(
+		"[rASAction] piece=", piece_controller.current_piece_type,
+		" piece_serial=", piece_controller._bot_piece_serial,
+		" ras_enabled=", rAS,
+		" action=", _ras_action_debug_label(spin_type, clear_count),
+		" spin_type=", spin_type if not spin_type.is_empty() else "NONE",
+		" clears=", clear_count,
+		" previous=", _ras_previous_action_debug_label(),
+		" repeat=", is_ras_dupe
+	)
 
 ## 判断本次动作是否与上次相同（连续重复 → true）
 ## @param spin_type: 本次Spin类型（空串 = Void 非Spin消除）
@@ -625,16 +693,18 @@ func _ras_dupe_action(spin_type: String, clear_count: int) -> bool:
 		return false
 	var cur_action: String = "spin" if not spin_type.is_empty() else "void"
 	var prev_action: String = _ras_last_action.get("action", "")
-	# 连续两个动作相同 → 惩罚；Spin 比较行数，Void 也按行数区分
+	# 连续两个动作相同 → 惩罚；所有 Void 清行视为同一动作，Spin 比较行数。
 	if cur_action != prev_action:
 		return false
+	if cur_action == "void":
+		return true
 	return int(_ras_last_action.get("count", -1)) == clear_count
 
 ## 记录本次 rAS 动作（在无惩罚的消行后调用）
 func _ras_record_action(spin_type: String, clear_count: int) -> void:
 	_ras_last_action = {
 		"action": "spin" if not spin_type.is_empty() else "void",
-		"count": clear_count,
+		"count": clear_count if not spin_type.is_empty() else 0,
 	}
 	_ras_has_last = true
 
@@ -751,7 +821,7 @@ func _show_pc_text():
 	pc_text_position = Vector2(_get_text_anchor_x(), bottom_y + pc_offset_y)
 	text_printer.show_text("pc", "PERFECT CLEAR", pc_text_position,
 		pc_text_color, pc_text_outline_color, board_drawer.cell_size * 1.2,
-		false, text_base_opacity, clear_text_display_duration, text_fade_duration, _get_text_drift(),
+		_is_allspin_ui_mode(), text_base_opacity, clear_text_display_duration, text_fade_duration, _get_text_drift(),
 		HORIZONTAL_ALIGNMENT_RIGHT, true, 0.4)
 
 ## 计算攻击伤害
@@ -759,6 +829,9 @@ func _calculate_damage(clear_count: int, spin_type: String) -> int:
 	var base_damage = 0
 	var spin_damage = 0
 	var surge_break = 0
+	var is_ras_void = rAS and spin_type.is_empty()
+	var effective_clear_count = 1 if is_ras_void else clear_count
+	_last_clear_ras_b2b_plus_two = false
 	
 	if not spin_type.is_empty():
 		# 【rAS】逆位全旋：Spin 使用 All-Spin 伤害表（全旋加成，4/6/8）
@@ -789,7 +862,7 @@ func _calculate_damage(clear_count: int, spin_type: String) -> int:
 	var attack_value: int = base_damage + spin_damage
 	
 	# 【rAS】逆位全旋：所有非Spin消除称为 Void，无攻击
-	if rAS and spin_type.is_empty():
+	if is_ras_void:
 		base_damage = 0
 		spin_damage = 0
 		attack_value = 0
@@ -799,14 +872,16 @@ func _calculate_damage(clear_count: int, spin_type: String) -> int:
 	var btb_boost: int = 0
 	if btb_count > 1:
 		if not spin_type.is_empty():
-			btb_boost = 2 if rAS else 1  # rAS：B2B 加伤改为 +2
+			# rAS：B2B 加伤 +2 仅在 btb>=4（蓄满）时获得；不足 4 只 +1
+			btb_boost = 2 if (rAS and btb_count >= btb_charge_at) else 1
+			_last_clear_ras_b2b_plus_two = rAS and btb_boost == 2
 			spin_damage += btb_boost
-		elif clear_count >= 4:
+		elif not is_ras_void and clear_count >= 4:
 			btb_boost = 1
 			base_damage += btb_boost
 	
-	if btb_count >= 4 and spin_type.is_empty() and clear_count < 4:
-		surge_break = btb_count
+	if is_ras_void and _get_visible_btb_count() >= 4:
+		surge_break = _get_visible_btb_count()
 	else:
 		surge_break = 0
 	last_surge_break = surge_break  # 记录本次是否断开蓄力（供伤害数字染色）
@@ -824,7 +899,7 @@ func _calculate_damage(clear_count: int, spin_type: String) -> int:
 		else:
 			# 旧连击表（备选项）
 			var is_mini: bool = spin_type.find("Mini") != -1
-			var is_quad: bool = clear_count >= 4
+			var is_quad: bool = effective_clear_count >= 4
 			if not is_mini and is_quad:
 				# 非mini spin且quad：伤害 +combo_count（x）
 				combo_damage = combo_count
@@ -901,6 +976,16 @@ func get_damage_tables() -> Dictionary:
 	tbl["allspin_damage"] = allspin_table
 	# allspin_1 规则是否启用（allspin==1）
 	tbl["allspin_enabled"] = (allspin == 1)
+	# rAS search state is snapshot-carried because the native worker may reuse a bot.
+	# -1 = no prior action, 0 = VOID, 1..5 = SPIN(0..4).
+	tbl["ras_enabled"] = rAS
+	var ras_previous_action := -1
+	if rAS and _ras_has_last:
+		if _ras_last_action.get("action", "") == "void":
+			ras_previous_action = 0
+		elif _ras_last_action.get("action", "") == "spin":
+			ras_previous_action = clampi(int(_ras_last_action.get("count", 0)) + 1, 1, 5)
+	tbl["ras_previous_action"] = ras_previous_action
 	# bot 评估权重：仅返回 buff 显式传参的键（bot_weight_override_keys 由
 	# tower_controller._extra_data_deal 填充）。这样 bridge 默认权重为主，
 	# 只有 buff 真正传了参的键才会覆盖 bridge。
@@ -942,8 +1027,11 @@ func _get_combo_text() -> String:
 ## 获取BTB文本
 func _get_btb_text() -> String:
 	if is_btb_active and btb_count > 1:
-		return "%d x BTB" % (btb_count - 1)
+		return "%d x BTB" % _get_visible_btb_count()
 	return ""
+
+func _get_visible_btb_count(internal_count: int = btb_count) -> int:
+	return maxi(0, internal_count - 1)
 
 # ========== 查找完整行 ==========
 
@@ -1019,12 +1107,12 @@ func _detect_spin_type() -> String:
 		# T块卡住 → 全 T-Spin
 		return "T-Spin"
 	
-	if allspin == 1:
-		# Allspin模式：非T块卡住 → 全 Spin（不加 Mini 前缀）
-		return last_rotation_piece_type + "-Spin"
-	
-	# 非T块卡住 → 视作 Mini Spin
-	return "Mini " + last_rotation_piece_type + "-Spin"
+	return _get_non_t_spin_label(last_rotation_piece_type)
+
+func _get_non_t_spin_label(piece_type: String) -> String:
+	if allspin == 1 or rAS:
+		return piece_type + "-Spin"
+	return "Mini " + piece_type + "-Spin"
 
 func _is_piece_stuck(shape: Array, piece_position: Vector2i) -> bool:
 	if not piece_controller:
@@ -1122,6 +1210,11 @@ func _get_text_base_y() -> float:
 	var hold_height = board_drawer.hold_display_height * board_drawer.cell_size
 	return hold_pos.y + hold_height
 
+## Allspin / 逆位全旋 模式：消行文本常驻显示（直到下一次消除才替换）
+## 其他模式走默认 VFX（弹出 → 漂移 → 淡出）
+func _is_allspin_ui_mode() -> bool:
+	return allspin == 1 or rAS
+
 func _show_clear_and_spin_text(clear_count: int, spin_type: String, _damage: int):
 	if clear_count <= 0 or not text_printer:
 		return
@@ -1144,13 +1237,16 @@ func _show_clear_and_spin_text(clear_count: int, spin_type: String, _damage: int
 	# 淡出与移动并行：这里把保持期缩短，让淡出在文本仍在移动时就开始
 	var clear_spin_hold: float = clear_text_display_duration * clear_spin_hold_scale
 	
+	# Allspin/rAS：常驻显示；其他模式走默认 VFX（弹出→漂移→淡出）
+	var ui_persist: bool = _is_allspin_ui_mode()
 	var offset_y = clear_text_offset_y_cells * cell
 	clear_text_position = Vector2(anchor_x, bottom_y + offset_y)
-	# 【rAS/常驻】清除类文本常驻显示，直到下一次消除才替换（不会自然消失）
 	text_printer.remove_text("clear")
 	text_printer.show_text("clear", clear_text, clear_text_position,
 		clear_text_color, clear_text_outline_color, cell * 1.0,
-		true, text_base_opacity)
+		ui_persist, text_base_opacity,
+		clear_text_display_duration, text_fade_duration, _get_text_drift(),
+		HORIZONTAL_ALIGNMENT_RIGHT, true, 0.3)
 	
 	if not spin_type.is_empty():
 		var spin_offset_y = (clear_text_offset_y_cells - spin_text_offset_y_cells) * cell
@@ -1158,7 +1254,9 @@ func _show_clear_and_spin_text(clear_count: int, spin_type: String, _damage: int
 		text_printer.remove_text("spin")
 		text_printer.show_text("spin", spin_type, spin_text_position,
 			display_spin_color, spin_text_outline_color, cell * 0.8,
-			true, text_base_opacity)
+			ui_persist, text_base_opacity,
+			clear_text_display_duration, text_fade_duration, _get_text_drift(),
+			HORIZONTAL_ALIGNMENT_RIGHT, true, 0.3)
 	else:
 		text_printer.remove_text("spin")
 	
@@ -1201,11 +1299,13 @@ func _show_spin_text_only(spin_type: String):
 	var cell = board_drawer.cell_size
 	# 计算spin文本位置
 	spin_text_position = Vector2(_get_text_anchor_x(), _get_text_base_y() + spin_text_offset_y_cells * cell)
-	# 常驻显示：直到下一次消除才替换（不会自然消失）
+	# Allspin/rAS：常驻显示；其他模式走默认 VFX
 	text_printer.remove_text("spin")
 	text_printer.show_text("spin", spin_type, spin_text_position,
 		display_spin_color, spin_text_outline_color, cell * 0.8,
-		true, text_base_opacity)
+		_is_allspin_ui_mode(), text_base_opacity,
+		clear_text_display_duration, text_fade_duration, _get_text_drift(),
+		HORIZONTAL_ALIGNMENT_RIGHT, true, 0.3)
 	# 不重置其他文本，让它们自然淡出
 
 ## 获取当前显示的Spin文本颜色
@@ -1238,6 +1338,7 @@ func reset():
 	current_damage = 0
 	accumulated_damage = 0
 	damage_pending = false
+	_last_clear_ras_b2b_plus_two = false
 	clear_spin_color()
 	has_cleared_lines = false
 

@@ -254,7 +254,8 @@ impl Standard {
     /// 计算本次落块按“实际游戏规则”产生的攻击（垃圾行）数。
     /// `btb_count_before` 为本次落块前的 BTB 计数（对应游戏 _calculate_damage 时的 btb_count）。
     pub fn game_damage_with_btb(&self, lock: &LockResult, b2b_active: bool, btb_count_before: u32) -> f32 {
-        let clear_count = lock.cleared_lines.len().min(4) as usize;
+        let is_ras_void = lock.ras_void;
+        let clear_count = if is_ras_void { 1 } else { lock.cleared_lines.len().min(4) as usize };
         let is_spin = matches!(
             lock.placement_kind,
             PlacementKind::Tspin
@@ -272,7 +273,9 @@ impl Standard {
         // Tspin*（allspin 模式），这里直接按 placement_kind 走对应表即可：
         //   allmini 模式 → is_mini → base_damage（与 T mini 一致）
         //   allspin 模式 → is_spin → tspin_damage（与 T-Spin 一致）
-        let mut dmg: i32 = if is_mini {
+        let mut dmg: i32 = if is_ras_void {
+            0
+        } else if is_mini {
             self.base_damage[clear_count]
         } else if is_spin {
             self.tspin_damage[clear_count.min(3)]
@@ -288,7 +291,7 @@ impl Standard {
 //   即连续第 3 次起 spin/quad 才有 +1 加成；连续第 5 次（btb_count>=4）额外 +1（+2 而非 +1）。
 //   例：连续第 5 次 spin/quad 的消4 = 4+2 而不是 4+1。
 // 对照：btb_count_before = 本次落块前的 btb_count；btb_count_before > 1 等同游戏的加成才生效。
-if btb_count_before > 1 {
+	if btb_count_before > 1 && !is_ras_void {
     let boost: i32 = self.b2b_bonus + if btb_count_before >= 4 { 1 } else { 0 };
     dmg += boost;
 }
@@ -310,6 +313,10 @@ if btb_count_before > 1 {
                     dmg += self.combo_damage[idx];
                 }
             }
+        }
+        let visible_btb = visible_btb_count(btb_count_before);
+        if is_ras_void && visible_btb >= 4 {
+            dmg += visible_btb as i32;
         }
         // Perfect Clear 附加伤害
         if lock.perfect_clear {
@@ -434,7 +441,12 @@ impl Evaluator for Standard {
         // 使 bot 的”清行/连击/spin/PC“决策与游戏真实伤害一致（并受 buff 倍率影响）。
         if self.game_damage_enabled {
             // board.b2b_bonus = 本次落块前的 BTB 状态（对应游戏 is_btb_active）
-            let dmg: f32 = self.game_damage(lock, board.b2b_bonus);
+            let b2b_active = if lock.ras_void {
+                lock.b2b_active_before
+            } else {
+                board.b2b_bonus
+            };
+            let dmg: f32 = self.game_damage(lock, b2b_active);
             acc_eval += (dmg * self.damage_eval_mult as f32) as i32;
             // 攻击效率决策：效率 = 本次攻击伤害 / 本次消除行数。
             // 用 attack_efficiency_weight 权重将效率换算成评估分，使 bot 优先选择
@@ -589,6 +601,51 @@ impl Evaluator for Standard {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use arrayvec::ArrayVec;
+    use libtetris::{LockResult, PlacementKind, RasAction};
+
+    use super::Standard;
+
+    fn ras_void_lock(cleared: usize, btb_count: u32) -> LockResult {
+        let mut lines = ArrayVec::new();
+        for line in 0..cleared {
+            lines.push(line as i32);
+        }
+        LockResult {
+            placement_kind: if cleared == 4 { PlacementKind::Clear4 } else { PlacementKind::Clear1 },
+            locked_out: false,
+            b2b: false,
+            perfect_clear: false,
+            combo: Some(3),
+            garbage_sent: 0,
+            cleared_lines: lines,
+            btb_count,
+            b2b_active_before: true,
+            allspin: false,
+            allspin_repeat: false,
+            ras_action: Some(RasAction::Void),
+            ras_void: true,
+            ras_repeat: false,
+        }
+    }
+
+    #[test]
+    fn ras_void_quad_uses_single_combo_and_full_surge() {
+        let mut evaluator = Standard::default();
+        evaluator.combo_formula = 0;
+        evaluator.combo_damage[3] = 1;
+        evaluator.send_mult_attack = 1000;
+        evaluator.mult_defend = 1000;
+
+        assert_eq!(evaluator.game_damage_with_btb(&ras_void_lock(1, 4), true, 4), 1.0);
+        assert_eq!(evaluator.game_damage_with_btb(&ras_void_lock(4, 4), true, 4), 1.0);
+        assert_eq!(evaluator.game_damage_with_btb(&ras_void_lock(1, 5), true, 5), 5.0);
+        assert_eq!(evaluator.game_damage_with_btb(&ras_void_lock(4, 5), true, 5), 5.0);
+    }
+}
+
 /// Evaluates the bumpiness of the playfield.
 ///
 /// The first returned value is the total amount of height change outside of an apparent well. The
@@ -702,7 +759,8 @@ macro_rules! detect_shape {
                         kind: PieceState(Piece::$piece, RotationState::$facing),
                         x: x + $x,
                         y: $y,
-                        tspin: TspinStatus::None
+                        tspin: TspinStatus::None,
+                        t_rotation_eligible: false
                     })
                 }
             }
@@ -811,6 +869,7 @@ fn cave_tslot(board: &Board, mut starting_point: FallingPiece) -> Option<Falling
                     y,
                     kind: PieceState(Piece::T, RotationState::South),
                     tspin: TspinStatus::None,
+                    t_rotation_eligible: false,
                 })
             } else if !board.occupied(x + 1, y - 1)
                 && !board.occupied(x + 2, y - 1)
@@ -825,6 +884,7 @@ fn cave_tslot(board: &Board, mut starting_point: FallingPiece) -> Option<Falling
                     y: y - 1,
                     kind: PieceState(Piece::T, RotationState::South),
                     tspin: TspinStatus::None,
+                    t_rotation_eligible: false,
                 })
             } else {
                 None
@@ -846,6 +906,7 @@ fn cave_tslot(board: &Board, mut starting_point: FallingPiece) -> Option<Falling
                     y,
                     kind: PieceState(Piece::T, RotationState::South),
                     tspin: TspinStatus::None,
+                    t_rotation_eligible: false,
                 })
             } else if !board.occupied(x - 1, y - 1)
                 && !board.occupied(x - 2, y - 1)
@@ -860,6 +921,7 @@ fn cave_tslot(board: &Board, mut starting_point: FallingPiece) -> Option<Falling
                     y: y - 1,
                     kind: PieceState(Piece::T, RotationState::South),
                     tspin: TspinStatus::None,
+                    t_rotation_eligible: false,
                 })
             } else {
                 None

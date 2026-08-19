@@ -42,6 +42,9 @@ pub struct Board<R = u16> {
     pub last_clear_kind: i32,
     /// 上次消行的行数。
     pub last_clear_count: i32,
+    /// rAS terminal-repeat rule state, supplied with each native worker request.
+    pub ras_enabled: bool,
+    pub ras_previous_action: RasAction,
 }
 
 pub trait Row: Copy + Clone + 'static {
@@ -75,6 +78,8 @@ impl<R: Row> Board<R> {
             game_rules_enabled: false,
             last_clear_kind: 0,
             last_clear_count: 0,
+            ras_enabled: false,
+            ras_previous_action: RasAction::None,
         }
     }
 
@@ -107,6 +112,8 @@ impl<R: Row> Board<R> {
             game_rules_enabled: false,
             last_clear_kind: 0,
             last_clear_count: 0,
+            ras_enabled: false,
+            ras_previous_action: RasAction::None,
         };
         board.set_field(field);
         board
@@ -217,6 +224,10 @@ impl<R: Row> Board<R> {
     /// Clears lines, detects clear kind, calculates garbage, maintains combo and back-to-back
     /// state, detects perfect clears, detects lockout.
     pub fn lock_piece(&mut self, piece: FallingPiece) -> LockResult {
+        let mut piece = piece;
+        if self.ras_enabled && piece.kind.0 == Piece::T && piece.t_rotation_eligible {
+            piece.tspin = self.detect_tspin(&piece);
+        }
         let mut locked_out = true;
         // allspin 规则：非T方块卡住（全向封堵）→ 根据 allspin_enabled 模式判定：
         //   0 = allmini：判为 mini spin（效果/伤害与 T mini 一致）
@@ -247,15 +258,29 @@ impl<R: Row> Board<R> {
             PlacementKind::get(cleared.len(), piece.tspin)
         };
 
+        let is_spin = piece.tspin != TspinStatus::None
+            || (non_t_stuck && matches!(self.allspin_enabled, 0 | 1));
+        let ras_action = Self::ras_action(is_spin, cleared.len());
+        let ras_repeat = self.ras_enabled
+            && ras_action.is_some()
+            && ras_action == Some(self.ras_previous_action);
+        if self.ras_enabled {
+            if let Some(action) = ras_action {
+                self.ras_previous_action = action;
+            }
+        }
+
         let mut garbage_sent = placement_kind.garbage();
 
         // 记录本次落块前的 BTB 计数（对应游戏 _calculate_damage 时的 btb_count，
         // 用于“btb>=4 时 btb 加成额外 +1”）。
         let btb_count_before: u32 = self.btb_count;
+        let b2b_active_before = self.b2b_bonus;
+        let is_ras_void = self.ras_enabled && ras_action == Some(RasAction::Void);
 
         let mut did_b2b = false;
         if placement_kind.is_clear() {
-            if placement_kind.is_hard() {
+            if placement_kind.is_hard() && !is_ras_void {
                 if self.b2b_bonus {
                     garbage_sent += 1;
                     did_b2b = true;
@@ -326,9 +351,13 @@ impl<R: Row> Board<R> {
             },
             b2b: did_b2b,
             btb_count: btb_count_before,
+            b2b_active_before,
             cleared_lines: cleared,
             allspin,
             allspin_repeat: is_allspin_repeat,
+            ras_action,
+            ras_void: is_ras_void,
+            ras_repeat,
         };
 
         l
@@ -354,6 +383,16 @@ impl<R: Row> Board<R> {
                 }
             }
             _ => 0,
+        }
+    }
+
+    fn ras_action(is_spin: bool, cleared: usize) -> Option<RasAction> {
+        if is_spin {
+            Some(RasAction::Spin(cleared.min(4) as u8))
+        } else if cleared > 0 {
+            Some(RasAction::Void)
+        } else {
+            None
         }
     }
 
@@ -383,6 +422,37 @@ impl<R: Row> Board<R> {
             }
         }
         true
+    }
+
+    pub(crate) fn detect_tspin(&self, piece: &FallingPiece) -> TspinStatus {
+        if self.piece_is_stuck(piece) {
+            return TspinStatus::Full;
+        }
+        let mut bottom = 0;
+        let mut top = 0;
+        for &(dx, dy) in &piece.kind.1.mini_tspin_corners() {
+            if self.occupied(piece.x + dx, piece.y + dy) {
+                if dy < 0 {
+                    bottom += 1;
+                } else {
+                    top += 1;
+                }
+            }
+        }
+        for &(dx, dy) in &piece.kind.1.non_mini_tspin_corners() {
+            if self.occupied(piece.x + dx, piece.y + dy) {
+                if dy < 0 {
+                    bottom += 1;
+                } else {
+                    top += 1;
+                }
+            }
+        }
+        if bottom == 2 && top >= 1 {
+            TspinStatus::Mini
+        } else {
+            TspinStatus::None
+        }
     }
 
     /// Holds the passed piece, returning the previous hold piece.
@@ -452,6 +522,8 @@ impl<R: Row> Board<R> {
             game_rules_enabled: self.game_rules_enabled,
             last_clear_kind: self.last_clear_kind,
             last_clear_count: self.last_clear_count,
+            ras_enabled: self.ras_enabled,
+            ras_previous_action: self.ras_previous_action,
         }
     }
 
@@ -489,6 +561,193 @@ impl<R: Row> Board<R> {
             bag.insert(p);
         }
         bag
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ras_actions_match_the_logical_rule() {
+        assert_eq!(Board::<u16>::ras_action(false, 0), None);
+        for cleared in 1..=4 {
+            assert_eq!(Board::<u16>::ras_action(false, cleared), Some(RasAction::Void));
+        }
+        for cleared in 0..=4 {
+            assert_eq!(
+                Board::<u16>::ras_action(true, cleared),
+                Some(RasAction::Spin(cleared as u8))
+            );
+        }
+    }
+
+    #[test]
+    fn ras_mode_controls_repeat_and_preserves_action_without_a_clear() {
+        let non_spin = FallingPiece {
+            kind: PieceState(Piece::O, RotationState::North),
+            x: 4,
+            y: 0,
+            tspin: TspinStatus::None,
+            t_rotation_eligible: false,
+        };
+        let spin_zero = FallingPiece {
+            kind: PieceState(Piece::T, RotationState::North),
+            x: 4,
+            y: 0,
+            tspin: TspinStatus::Full,
+            t_rotation_eligible: false,
+        };
+
+        let mut enabled = Board::<u16>::new();
+        enabled.ras_enabled = true;
+        enabled.ras_previous_action = RasAction::Spin(0);
+        let lock = enabled.lock_piece(spin_zero);
+        assert_eq!(lock.ras_action, Some(RasAction::Spin(0)));
+        assert!(lock.ras_repeat);
+
+        let mut enabled_no_action = Board::<u16>::new();
+        enabled_no_action.ras_enabled = true;
+        enabled_no_action.ras_previous_action = RasAction::Spin(0);
+        let lock = enabled_no_action.lock_piece(non_spin);
+        assert_eq!(lock.ras_action, None);
+        assert!(!lock.ras_repeat);
+        assert_eq!(enabled_no_action.ras_previous_action, RasAction::Spin(0));
+
+        let mut disabled = Board::<u16>::new();
+        disabled.ras_previous_action = RasAction::Void;
+        let lock = disabled.lock_piece(spin_zero);
+        assert!(!lock.ras_repeat);
+        assert_eq!(disabled.ras_previous_action, RasAction::Void);
+    }
+
+    #[test]
+    fn ras_state_survives_compression_and_snapshot_encoding() {
+        let mut board = Board::<u16>::new();
+        board.ras_enabled = true;
+        board.ras_previous_action = RasAction::Spin(3);
+        let compressed = board.to_compressed();
+        assert!(compressed.ras_enabled);
+        assert_eq!(compressed.ras_previous_action, RasAction::Spin(3));
+        assert_eq!(RasAction::Void.snapshot(), 0);
+        assert_eq!(RasAction::Spin(0).snapshot(), 1);
+        assert_eq!(RasAction::Spin(4).snapshot(), 5);
+        assert_eq!(RasAction::from_snapshot(-1), RasAction::None);
+    }
+
+    #[test]
+    fn ras_preserves_spin_marker_through_move_and_drop() {
+        let marked = FallingPiece {
+            kind: PieceState(Piece::T, RotationState::North),
+            x: 4,
+            y: 19,
+            tspin: TspinStatus::Full,
+            t_rotation_eligible: false,
+        };
+
+        let mut ras_board = Board::<u16>::new();
+        ras_board.ras_enabled = true;
+        let mut ras_piece = marked;
+        assert!(ras_piece.shift(&ras_board, 1, 0));
+        assert_eq!(ras_piece.tspin, TspinStatus::Full);
+        assert!(ras_piece.sonic_drop(&ras_board));
+        assert_eq!(ras_piece.tspin, TspinStatus::Full);
+
+        let ordinary_board = Board::<u16>::new();
+        let mut ordinary_piece = marked;
+        assert!(ordinary_piece.shift(&ordinary_board, 1, 0));
+        assert_eq!(ordinary_piece.tspin, TspinStatus::None);
+    }
+
+    #[test]
+    fn ras_classifies_final_t_spin_after_route_movement() {
+        let mut board = Board::<u16>::new();
+        board.ras_enabled = true;
+        board.ras_previous_action = RasAction::Spin(1);
+        for x in 0..10 {
+            if (3..=5).contains(&x) {
+                continue;
+            }
+            board.set_cell_color(x, 5, CellColor::Garbage);
+        }
+        board.set_cell_color(3, 4, CellColor::Garbage);
+        board.set_cell_color(3, 6, CellColor::Garbage);
+
+        let lock = board.lock_piece(FallingPiece {
+            kind: PieceState(Piece::T, RotationState::South),
+            x: 4,
+            y: 5,
+            tspin: TspinStatus::None,
+            t_rotation_eligible: true,
+        });
+
+        assert_eq!(lock.placement_kind, PlacementKind::Tspin1);
+        assert_eq!(lock.ras_action, Some(RasAction::Spin(1)));
+        assert!(lock.ras_repeat);
+    }
+
+    #[test]
+    fn ras_keeps_final_mini_t_spin_as_mini() {
+        let mut board = Board::<u16>::new();
+        board.ras_enabled = true;
+        board.set_cell_color(3, 4, CellColor::Garbage);
+        board.set_cell_color(5, 4, CellColor::Garbage);
+        board.set_cell_color(3, 6, CellColor::Garbage);
+
+        let lock = board.lock_piece(FallingPiece {
+            kind: PieceState(Piece::T, RotationState::North),
+            x: 4,
+            y: 5,
+            tspin: TspinStatus::None,
+            t_rotation_eligible: true,
+        });
+
+        assert_eq!(lock.placement_kind, PlacementKind::MiniTspin);
+        assert_eq!(lock.ras_action, Some(RasAction::Spin(0)));
+    }
+
+    #[test]
+    fn allspin_keeps_explicit_mini_t_spin_as_mini() {
+        let mut board = Board::<u16>::new();
+        board.allspin_enabled = 1;
+        let lock = board.lock_piece(FallingPiece {
+            kind: PieceState(Piece::T, RotationState::North),
+            x: 4,
+            y: 5,
+            tspin: TspinStatus::Mini,
+            t_rotation_eligible: false,
+        });
+
+        assert_eq!(lock.placement_kind, PlacementKind::MiniTspin);
+    }
+
+    #[test]
+    fn ras_void_quad_breaks_b2b() {
+        let mut board = Board::<u16>::new();
+        board.ras_enabled = true;
+        board.b2b_bonus = true;
+        board.btb_count = 5;
+        for y in 0..4 {
+            for x in 0..10 {
+                if x != 4 {
+                    board.set_cell_color(x, y, CellColor::Garbage);
+                }
+            }
+        }
+
+        let lock = board.lock_piece(FallingPiece {
+            kind: PieceState(Piece::I, RotationState::East),
+            x: 3,
+            y: 2,
+            tspin: TspinStatus::None,
+            t_rotation_eligible: false,
+        });
+
+        assert_eq!(lock.cleared_lines.len(), 4);
+        assert!(lock.ras_void);
+        assert_eq!(lock.btb_count, 5);
+        assert!(!board.b2b_bonus);
+        assert_eq!(board.btb_count, 0);
     }
 }
 

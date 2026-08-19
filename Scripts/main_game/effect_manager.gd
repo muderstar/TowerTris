@@ -341,7 +341,8 @@ func _draw_b2b_badge():
 		badge_mult = _break_badge_scale(bt)
 		num_mult = _break_num_scale(bt)
 		radius *= badge_mult
-		color = Color.WHITE
+		if not _b2b_ras_mode:
+			color = Color.WHITE
 	elif _b2b_spring_timer >= 0.0:
 		# 越过阈值 spring-in：0→1.4→1（0.25s）
 		var s: float = clampf(_b2b_spring_timer / 0.25, 0.0, 1.0)
@@ -372,8 +373,7 @@ func _draw_b2b_badge():
 	var closed := pts
 	closed.append(pts[0])
 	draw_polyline(closed, outline, 2.0, true)
-	# 中心蓄力数字（TETR.IO：charge - at + 1 + base）
-	var num := str(maxi(1, charge - _b2b_badge_charge_at + 1 + _b2b_badge_base))
+	var num := str(charge) if _b2b_ras_mode else str(maxi(1, charge - _b2b_badge_charge_at + 1 + _b2b_badge_base))
 	# 【rAS】数字 1 渲染为字符 "I"（DS Crystal 风格，与 seg 倒计时一致）
 	if _b2b_ras_mode:
 		num = num.replace("1", "I")
@@ -389,8 +389,25 @@ func _draw_b2b_badge():
 	# 【rAS】蓄力数字固定白色（形状/六边形保留紫→红渐变），其余模式跟随形状色
 	var text_color: Color = Color.WHITE if _b2b_ras_mode else color
 	text_color.a = alpha
-	draw_string(font, text_pos + Vector2(1, 1), num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.BLACK)
-	draw_string(font, text_pos, num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, text_color)
+	if _b2b_ras_mode:
+		# 【rAS】DS Crystal 数字字形间隙过窄 → 逐字符绘制并增加字符间距
+		var gap: float = maxf(2.0, fs * 0.07)
+		var widths: Array = []
+		var total_w: float = 0.0
+		for i in num.length():
+			var cw: float = font.get_string_size(num[i], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			widths.append(cw)
+			total_w += cw + gap
+		total_w -= gap
+		var cx: float = center.x - total_w * 0.5
+		var cy: float = center.y + ts.y * 0.35
+		for i in num.length():
+			draw_string(font, Vector2(cx + 1, cy + 1), num[i], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.BLACK)
+			draw_string(font, Vector2(cx, cy), num[i], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, text_color)
+			cx += widths[i] + gap
+	else:
+		draw_string(font, text_pos + Vector2(1, 1), num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.BLACK)
+		draw_string(font, text_pos, num, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, text_color)
 	# 断开爆炸：白字 "B2B X0" 闪烁（仿 TETR.IO down_send 文字闪烁）
 	if _b2b_break_timer >= 0.0:
 		var bt: float = _b2b_break_timer

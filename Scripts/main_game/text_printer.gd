@@ -31,6 +31,7 @@ class TextEntry:
 	var pop_duration: float = 0.3      # pop 动画时长（秒）
 	var pulse: bool = false            # 常驻文本是否周期脉冲（作用于缩放/透明度）
 	var segments: Array = []           # 多色分段 [[text, Color], ...]；为空时整条使用 color
+	var font: Font = null              # 自定义字体；null 时使用 fallback 字体
 
 
 ## key -> Array[TextEntry]
@@ -84,7 +85,8 @@ func show_text(
 	pop: bool = false,
 	pop_duration: float = 0.3,
 	pulse: bool = false,
-	segments: Array = []
+	segments: Array = [],
+	font: Font = null
 ) -> void:
 	var list = _entries.get(key)
 	var entry: TextEntry
@@ -93,12 +95,12 @@ func show_text(
 		entry = list[0]
 		_fill_entry(entry, key, text, pos, color, outline_color, font_size,
 			persistent, opacity, display_duration, fade_duration, drift, alignment,
-			pop, pop_duration, pulse, segments)
+			pop, pop_duration, pulse, segments, font)
 	else:
 		entry = TextEntry.new()
 		_fill_entry(entry, key, text, pos, color, outline_color, font_size,
 			persistent, opacity, display_duration, fade_duration, drift, alignment,
-			pop, pop_duration, pulse, segments)
+			pop, pop_duration, pulse, segments, font)
 		# 叠加：多条非持久文本在原位叠加显示（不向下错开，各自独立淡出）
 		if list == null:
 			list = []
@@ -124,7 +126,8 @@ func _fill_entry(
 	pop: bool = false,
 	pop_duration: float = 0.3,
 	pulse: bool = false,
-	segments: Array = []
+	segments: Array = [],
+	font: Font = null
 ) -> void:
 	entry.key = key
 	entry.text = text
@@ -132,6 +135,7 @@ func _fill_entry(
 	entry.color = color
 	entry.outline_color = outline_color
 	entry.font_size = font_size
+	entry.font = font
 	entry.persistent = persistent
 	entry.base_opacity = clampf(opacity, 0.0, 1.0)
 	entry.opacity = clampf(opacity, 0.0, 1.0)
@@ -288,12 +292,13 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if _entries.is_empty():
 		return
-	var font: Font = ThemeDB.fallback_font
+	var fallback_font: Font = ThemeDB.fallback_font
 	for key: String in _entries:
 		var list: Array = _entries[key]
 		for entry: TextEntry in list:
 			if entry.text.is_empty() or entry.opacity <= 0.0:
 				continue
+			var font: Font = entry.font if entry.font != null else fallback_font
 			# 常驻文本脉冲：轻微呼吸缩放（发光感）
 			var scale: float = entry.pop_scale
 			if entry.persistent and entry.pulse:

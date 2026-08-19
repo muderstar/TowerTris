@@ -164,6 +164,7 @@ fn convert(p: fumen::Piece) -> FallingPiece {
         x: p.x as i32,
         y: p.y as i32,
         tspin: TspinStatus::None,
+        t_rotation_eligible: false,
     }
 }
 
@@ -214,6 +215,7 @@ fn mirror_placement(p: FallingPiece) -> FallingPiece {
             _ => p.y,
         },
         tspin: p.tspin,
+        t_rotation_eligible: p.t_rotation_eligible,
     }
 }
 

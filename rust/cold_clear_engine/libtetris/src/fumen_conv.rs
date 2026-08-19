@@ -7,6 +7,7 @@ impl From<fumen::Piece> for FallingPiece {
             x: v.x as i32,
             y: v.y as i32,
             tspin: TspinStatus::None,
+            t_rotation_eligible: false,
         }
     }
 }

@@ -479,7 +479,8 @@ macro_rules! detect_shape {
                         kind: PieceState(Piece::$piece, RotationState::$facing),
                         x: x + $x,
                         y: $y,
-                        tspin: TspinStatus::None
+                        tspin: TspinStatus::None,
+                        t_rotation_eligible: false
                     })
                 }
             }
@@ -588,6 +589,7 @@ fn cave_tslot(board: &Board, mut starting_point: FallingPiece) -> Option<Falling
                     y,
                     kind: PieceState(Piece::T, RotationState::South),
                     tspin: TspinStatus::None,
+                    t_rotation_eligible: false,
                 })
             } else if !board.occupied(x + 1, y - 1)
                 && !board.occupied(x + 2, y - 1)
@@ -602,6 +604,7 @@ fn cave_tslot(board: &Board, mut starting_point: FallingPiece) -> Option<Falling
                     y: y - 1,
                     kind: PieceState(Piece::T, RotationState::South),
                     tspin: TspinStatus::None,
+                    t_rotation_eligible: false,
                 })
             } else {
                 None
@@ -623,6 +626,7 @@ fn cave_tslot(board: &Board, mut starting_point: FallingPiece) -> Option<Falling
                     y,
                     kind: PieceState(Piece::T, RotationState::South),
                     tspin: TspinStatus::None,
+                    t_rotation_eligible: false,
                 })
             } else if !board.occupied(x - 1, y - 1)
                 && !board.occupied(x - 2, y - 1)
@@ -637,6 +641,7 @@ fn cave_tslot(board: &Board, mut starting_point: FallingPiece) -> Option<Falling
                     y: y - 1,
                     kind: PieceState(Piece::T, RotationState::South),
                     tspin: TspinStatus::None,
+                    t_rotation_eligible: false,
                 })
             } else {
                 None

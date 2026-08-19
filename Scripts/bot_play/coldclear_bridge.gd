@@ -98,6 +98,10 @@ var _plan_hold_done: bool = false
 var _pending_request_id: int = -1
 var _request_id_counter: int = 0
 var _waiting_native: bool = false
+var _pending_request_piece_serial: int = -1
+var _pending_request_debug_log: bool = false
+var _last_serialized_ras_enabled: int = 0
+var _last_serialized_ras_previous_action: int = -1
 
 # 最近一次请求时 bot 面对的当前方块 / 暂存（hold）方块（用于决策日志输出，便于排查误旋转）
 var _last_current_piece: String = "-"
@@ -253,12 +257,45 @@ func request_plan(game_controller) -> void:
 		return
 	_request_id_counter += 1
 	_pending_request_id = _request_id_counter
+	_pending_request_piece_serial = _get_piece_serial(game_controller)
+	_pending_request_debug_log = _bot_debug_enabled(game_controller)
 	_waiting_native = true
+	if _pending_request_debug_log:
+		print(
+			"[ColdClearRequest] id=", _pending_request_id,
+			" piece_serial=", _pending_request_piece_serial,
+			" current=", _last_current_piece,
+			" hold=", _last_hold_piece,
+			" ras_enabled=", _last_serialized_ras_enabled,
+			" previous_raw=", _last_serialized_ras_previous_action,
+			" previous=", _decode_ras_snapshot(_last_serialized_ras_previous_action),
+			" use_hold=", use_hold,
+			" b2b=", b2b,
+			" combo=", combo,
+			" incoming=", incoming
+		)
 	if not _request_move(batch, _pending_request_id):
 		_pending_request_id = -1
+		_pending_request_piece_serial = -1
+		_pending_request_debug_log = false
 		_waiting_native = false
 		_native_cooldown_until = Time.get_ticks_msec() + FAIL_COOLDOWN_MS
 		push_warning("ColdClearBridge: 原生决策入队失败，本块起回退默认bot（冷却10s）")
+
+func _bot_debug_enabled(game_controller) -> bool:
+	return game_controller != null and "bot_debug_log" in game_controller and bool(game_controller.bot_debug_log)
+
+func _get_piece_serial(game_controller) -> int:
+	if game_controller != null and "_bot_piece_serial" in game_controller:
+		return int(game_controller._bot_piece_serial)
+	return -1
+
+func _decode_ras_snapshot(snapshot: int) -> String:
+	if snapshot == -1:
+		return "NONE"
+	if snapshot == 0:
+		return "VOID"
+	return "SPIN(%d)" % (snapshot - 1)
 
 ## 取出下一个待执行动作；计划已结束时返回 hard_drop（锁定当前块）。
 ## 若计划要求 Hold，第一个动作先返回 hold。
@@ -338,7 +375,7 @@ func _compute_bag_remain(queue: Array) -> int:
 ##       <clear1> <clear2> <clear3> <tspin1> <tspin2> <tspin3> <mini_tspin1> <mini_tspin2>
 ##       <allspin1> <allspin2> <allspin3> <allspin3plus>
 ##       <perfect_clear> <combo_garbage> <wasted_t> <move_time>
-##       <kickLen> <kick dx,dy pairs: 2*kickLen> <combo0..31> <combo_formula>
+##       <kickLen> <kick dx,dy pairs: 2*kickLen> <combo0..31> <combo_formula> <ras_enabled> <ras_previous_action>
 ## allspin_enabled 为 int：0=allmini（非T卡住→minispin，效果同T mini），1=allspin（非T卡住→fullspin，效果同T-Spin），其余保留。
 ## 伤害表/倍率/规则开关等来自 buff（clear_line_controller.get_damage_tables、
 ## tower_controller.get_send_mult_attack、garbage_line_controller.get_mult_defend）。
@@ -382,6 +419,8 @@ func _build_game_rules_command(game_controller) -> String:
 	var send_mult_attack := 1.0
 	var mult_defend := 1.0
 	var allspin_enabled_i := 0
+	var ras_enabled := 0
+	var ras_previous_action := -1
 	var kick_table: Array = []
 
 	# 伤害表/倍率/规则开关来自 buff（clear_line_controller.get_damage_tables 等）。
@@ -399,6 +438,8 @@ func _build_game_rules_command(game_controller) -> String:
 		if d.has("b2b_bonus"): b2b_bonus = int(d.b2b_bonus)
 		if d.has("pc_damage"): pc_damage = int(d.pc_damage)
 		if d.has("allspin_enabled"): allspin_enabled_i = int(d.allspin_enabled)  # 0=allmini, 1=allspin
+		if d.has("ras_enabled"): ras_enabled = 1 if d.ras_enabled else 0
+		if d.has("ras_previous_action"): ras_previous_action = int(d.ras_previous_action)
 		# buff 可覆盖各类型消行/旋转/惩罚权重（默认以本桥导出变量为准）
 		if d.has("eval_mult"): w_eval_mult = int(d.eval_mult)
 		if d.has("attack_efficiency_weight"): w_attack_efficiency_weight = int(d.attack_efficiency_weight)
@@ -486,6 +527,11 @@ func _build_game_rules_command(game_controller) -> String:
 	for v in combo_damage: parts.append(str(int(v)))
 	# 连击计算方式：0=旧连击表，1=新公式（默认）
 	parts.append(str(int(combo_formula)))
+	# Append-only rAS snapshot: -1=none, 0=VOID, 1..5=SPIN(0..4).
+	_last_serialized_ras_enabled = ras_enabled
+	_last_serialized_ras_previous_action = clampi(ras_previous_action, -1, 5)
+	parts.append(str(_last_serialized_ras_enabled))
+	parts.append(str(_last_serialized_ras_previous_action))
 	return " ".join(parts) + "\n"
 
 ## 构建发送给 worker 的完整命令批（S/W/R/H/GO 行）。
@@ -556,7 +602,11 @@ func _get_min_nodes(target_pps: float) -> int:
 func _on_move_ready(request_id: int, reply: String) -> void:
 	if request_id != _pending_request_id:
 		return
+	var request_piece_serial := _pending_request_piece_serial
+	var request_debug_log := _pending_request_debug_log
 	_pending_request_id = -1
+	_pending_request_piece_serial = -1
+	_pending_request_debug_log = false
 	_waiting_native = false
 	# 诊断：本次决策往返耗时（request→reply），用于排查 PPS 瓶颈
 	if _pps_diag_count <= 6:
@@ -588,6 +638,13 @@ func _on_move_ready(request_id: int, reply: String) -> void:
 		for i in range(n):
 			if mv_start + i < parts.size():
 				movements.append(_move_to_action(parts[mv_start + i]))
+		var simulated_tspin: int = -1
+		var simulated_clear_count: int = -1
+		if _last_serialized_ras_enabled == 1:
+			var sim_start: int = mv_start + n
+			if sim_start + 3 < parts.size() and parts[sim_start] == "P":
+				simulated_tspin = int(parts[sim_start + 2])
+				simulated_clear_count = int(parts[sim_start + 3])
 		_plan = {"ok": true, "hold": hold, "movements": movements}
 		_plan_index = 0
 		_plan_hold_done = false
@@ -604,6 +661,22 @@ func _on_move_ready(request_id: int, reply: String) -> void:
 			" | 路径(", movements.size(), "步)=", movements,
 			" | 剩余待执行=", remaining_movements()
 		)
+		if request_debug_log:
+			print(
+				"[ColdClearPlan] id=", request_id,
+				" piece_serial=", request_piece_serial,
+				" use_hold=", hold,
+				" movements=", movements,
+				" expected_cells=", expected_cells
+			)
+			if simulated_tspin >= 0:
+				print(
+					"[ColdClearSim] id=", request_id,
+					" piece_serial=", request_piece_serial,
+					" action=", _decode_simulated_ras_action(simulated_tspin, simulated_clear_count),
+					" tspin_status=", _decode_native_tspin(simulated_tspin),
+					" clears=", simulated_clear_count
+				)
 		return
 	# TIMEOUT / 未知回复
 	_native_cooldown_until = Time.get_ticks_msec() + FAIL_COOLDOWN_MS
@@ -626,6 +699,23 @@ func _move_to_action(code: String) -> String:
 		"D":
 			return "soft_drop"
 	return "hard_drop"
+
+func _decode_native_tspin(status: int) -> String:
+	match status:
+		0:
+			return "NONE"
+		1:
+			return "MINI"
+		2:
+			return "FULL"
+	return "UNKNOWN"
+
+func _decode_simulated_ras_action(tspin_status: int, clear_count: int) -> String:
+	if tspin_status != 0:
+		return "SPIN(%d)" % clear_count
+	if clear_count > 0:
+		return "VOID"
+	return "NO_CLEAR"
 
 # ========== worker 子进程管理（自包含，原 coldclear_native_stub 逻辑） ==========
 
